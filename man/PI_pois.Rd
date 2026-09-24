@@ -114,7 +114,7 @@ A MultiMAP object: a named list with S3 class
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
-  \code{\link{report_pois}} on it.
+  \code{\link{REPORT_pois}} on it.
 }
 \description{
 Builds robustified priors for the study arms of interest -- either meta-analytic-predictive (MAP) priors
@@ -172,5 +172,5 @@ a trend in Poisson means. \emph{Biometrics, 38}(2), 457--462.
 \doi{10.2307/2530459}
 }
 \seealso{
-\code{\link{SCI_pois}}, \code{\link{report_pois}}
+\code{\link{SCI_pois}}, \code{\link{REPORT_pois}}
 }

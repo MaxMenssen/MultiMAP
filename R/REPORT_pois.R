@@ -47,8 +47,8 @@
 #' @return The report file path, invisibly. As a side effect it writes the report
 #'   file and the \code{"<file>_object.rds"} it loads.
 #'
-#' @seealso \code{\link{SCI_pois}}, \code{\link{PI_pois}}, \code{\link{report_norm}},
-#'   \code{\link{report_binom}}
+#' @seealso \code{\link{SCI_pois}}, \code{\link{PI_pois}}, \code{\link{REPORT_norm}},
+#'   \code{\link{REPORT_binom}}
 #'
 #' @examples
 #' \donttest{
@@ -59,10 +59,10 @@
 #'                       offset = c(3, 3, 3))
 #' res <- SCI_pois(histdat, newdat, prior_est = "MAP",
 #'                 contr = "rate_diff", seed = 1)
-#' report_pois(res)   # writes into tempdir()
+#' REPORT_pois(res)   # writes into tempdir()
 #' }
 #' @export
-report_pois <- function(x,
+REPORT_pois <- function(x,
                    path      = NULL,
                    file      = NULL,
                    title     = "MultiMAP analysis report",
@@ -75,7 +75,7 @@ report_pois <- function(x,
                 stop("x is not of class MultiMAP")
         }
         if(!inherits(x, "MultiMAP_pois")){
-                stop("report_pois() expects a Poisson MultiMAP object (from SCI_pois() or PI_pois()); use report_norm() / report_binom() for other endpoints.")
+                stop("REPORT_pois() expects a Poisson MultiMAP object (from SCI_pois() or PI_pois()); use REPORT_norm() / REPORT_binom() for other endpoints.")
         }
         # SCI_pois() objects carry class "SCI"; PI_pois() objects carry class "PI".
         is_sci <- inherits(x, "SCI")
@@ -151,7 +151,7 @@ library(knitr)
 # MultiMAP provides SCI_pois() / PI_pois() and the summary / get_output methods.
 library(MultiMAP)
 
-# Fitted object produced by SCI_pois() / PI_pois() and saved by report_pois():
+# Fitted object produced by SCI_pois() / PI_pois() and saved by REPORT_pois():
 x <- readRDS("{{DATA_FILE}}")
 
 # Render an RBesT gamma mixture (rows w, a, b) as a tidy table, with the implied

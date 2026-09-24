@@ -88,9 +88,9 @@
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
 #'   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
-#'   \code{\link{report_pois}} on it.
+#'   \code{\link{REPORT_pois}} on it.
 #'
-#' @seealso \code{\link{SCI_pois}}, \code{\link{report_pois}}
+#' @seealso \code{\link{SCI_pois}}, \code{\link{REPORT_pois}}
 #'
 #' @references
 #' EFSA (European Food Safety Authority) (2025). Use and reporting of historical

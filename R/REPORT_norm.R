@@ -56,10 +56,10 @@
 #'                       sd    = c(2.0, 2.2, 2.1),
 #'                       n     = c(30, 30, 30))
 #' res <- SCI_norm(histdat, newdat, contr = "mean_diff", seed = 1)
-#' report_norm(res)   # writes into tempdir()
+#' REPORT_norm(res)   # writes into tempdir()
 #' }
 #' @export
-report_norm <- function(x,
+REPORT_norm <- function(x,
                    path      = NULL,
                    file      = NULL,
                    title     = "MultiMAP analysis report",
@@ -153,7 +153,7 @@ library(knitr)
 # get_output methods used below.
 library(MultiMAP)
 
-# Fitted object produced by SCI_norm() and saved by report_norm():
+# Fitted object produced by SCI_norm() and saved by REPORT_norm():
 x <- readRDS("{{DATA_FILE}}")
 
 # Render an RBesT normal mixture (rows w, m, s) as a tidy table

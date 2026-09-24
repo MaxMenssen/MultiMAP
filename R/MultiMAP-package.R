@@ -8,16 +8,16 @@
 #'     (\code{\link{PI_norm}}), simultaneous credible intervals
 #'     (\code{\link{SCI_norm}}), Monte-Carlo operating characteristics
 #'     (\code{\link{SIM_norm}}), a data generator (\code{\link{h1_norm}}) and a
-#'     report-template generator (\code{\link{report_norm}}). The prior is a
+#'     report-template generator (\code{\link{REPORT_norm}}). The prior is a
 #'     meta-analytic-predictive (MAP) prior via \code{RBesT::gMAP}.
 #'   \item \strong{Binomial endpoints} -- the counterparts
 #'     \code{\link{PI_binom}}, \code{\link{SCI_binom}}, \code{\link{SIM_binom}},
-#'     \code{\link{h1_binom}} and \code{\link{report_binom}}. The prior is either
+#'     \code{\link{h1_binom}} and \code{\link{REPORT_binom}}. The prior is either
 #'     a MAP prior (\code{RBesT::gMAP}, \code{family = binomial}) or an
 #'     empirical-Bayes beta prior estimated from the historical data.
 #'   \item \strong{Poisson (count) endpoints} -- the counterparts
 #'     \code{\link{PI_pois}}, \code{\link{SCI_pois}}, \code{\link{SIM_pois}},
-#'     \code{\link{h1_pois}} and \code{\link{report_pois}} for a gamma-Poisson
+#'     \code{\link{h1_pois}} and \code{\link{REPORT_pois}} for a gamma-Poisson
 #'     rate model. The prior is either a MAP prior (\code{RBesT::gMAP},
 #'     \code{family = poisson}) or an empirical-Bayes gamma prior following
 #'     Tarone (1982).

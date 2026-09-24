@@ -110,7 +110,7 @@ A MultiMAP object: a named list with S3 class
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
-  \code{\link{report_binom}} on it.
+  \code{\link{REPORT_binom}} on it.
 }
 \description{
 Builds robustified priors for the study arms of interest -- either a meta-analytic-predictive (MAP) prior
@@ -192,5 +192,5 @@ a systematic review and meta-analysis. \emph{Lancet, 395}(10235), 1487--1495.
 \doi{10.1016/S0140-6736(20)30315-9}
 }
 \seealso{
-\code{\link{SCI_binom}}, \code{\link{report_binom}}
+\code{\link{SCI_binom}}, \code{\link{REPORT_binom}}
 }

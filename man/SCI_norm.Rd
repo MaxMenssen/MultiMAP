@@ -137,7 +137,7 @@ A MultiMAP object: a named list with S3 class
   }
   Use \code{\link{plot.MultiMAP}}, \code{\link{print.MultiMAP}},
   \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
-  \code{\link{report_norm}} on it.
+  \code{\link{REPORT_norm}} on it.
 }
 \description{
 Bayesian dynamic borrowing from historical control data for a normally
@@ -201,5 +201,5 @@ and stochastic systems. \emph{Statistical Science, 10}(1), 3--66.
 \url{http://www.jstor.org/stable/2246224}
 }
 \seealso{
-\code{\link{PI_norm}}, \code{\link{SIM_norm}}, \code{\link{report_norm}}
+\code{\link{PI_norm}}, \code{\link{SIM_norm}}, \code{\link{REPORT_norm}}
 }

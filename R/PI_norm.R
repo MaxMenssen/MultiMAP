@@ -81,9 +81,9 @@
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
 #'   Use \code{\link{plot.MultiMAP}}, \code{\link{summary.MultiMAP}},
-#'   \code{\link{get_output}} and \code{\link{report_norm}} on it.
+#'   \code{\link{get_output}} and \code{\link{REPORT_norm}} on it.
 #'
-#' @seealso \code{\link{SCI_norm}}, \code{\link{report_norm}}
+#' @seealso \code{\link{SCI_norm}}, \code{\link{REPORT_norm}}
 #'
 #' @references
 #' EFSA (European Food Safety Authority) (2025). Use and reporting of historical

@@ -86,9 +86,9 @@
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
 #'   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
-#'   \code{\link{report_binom}} on it.
+#'   \code{\link{REPORT_binom}} on it.
 #'
-#' @seealso \code{\link{SCI_binom}}, \code{\link{report_binom}}
+#' @seealso \code{\link{SCI_binom}}, \code{\link{REPORT_binom}}
 #'
 #' @references
 #' EFSA (European Food Safety Authority) (2025). Use and reporting of historical

@@ -49,7 +49,7 @@
 #' @return The report file path, invisibly. As a side effect it writes the report
 #'   file and the \code{"<file>_object.rds"} it loads.
 #'
-#' @seealso \code{\link{SCI_binom}}, \code{\link{PI_binom}}, \code{\link{report_norm}}
+#' @seealso \code{\link{SCI_binom}}, \code{\link{PI_binom}}, \code{\link{REPORT_norm}}
 #'
 #' @examples
 #' \donttest{
@@ -60,10 +60,10 @@
 #'                       non_events = c(22, 16, 13))
 #' res <- SCI_binom(histdat, newdat, prior_est = "MAP",
 #'                  contr = "pi_diff", seed = 1)
-#' report_binom(res)   # writes into tempdir()
+#' REPORT_binom(res)   # writes into tempdir()
 #' }
 #' @export
-report_binom <- function(x,
+REPORT_binom <- function(x,
                     path      = NULL,
                     file      = NULL,
                     title     = "MultiMAP analysis report",
@@ -76,7 +76,7 @@ report_binom <- function(x,
                 stop("x is not of class MultiMAP")
         }
         if(!inherits(x, "MultiMAP_binom")){
-                stop("report_binom() expects a binomial MultiMAP object (from SCI_binom() or PI_binom()); use report_norm() for normal endpoints.")
+                stop("REPORT_binom() expects a binomial MultiMAP object (from SCI_binom() or PI_binom()); use REPORT_norm() for normal endpoints.")
         }
         # SCI_binom() objects carry class "SCI"; PI_binom() objects carry class
         # "PI" and provide only the prior / prediction interval.
@@ -160,7 +160,7 @@ library(knitr)
 # methods used below.
 library(MultiMAP)
 
-# Fitted object produced by SCI_binom() / PI_binom() and saved by report_binom():
+# Fitted object produced by SCI_binom() / PI_binom() and saved by REPORT_binom():
 x <- readRDS("{{DATA_FILE}}")
 
 # Render an RBesT beta mixture (rows w, a, b) as a tidy table, with the implied

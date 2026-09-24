@@ -110,7 +110,7 @@ A MultiMAP object: a named list with S3 class
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
   Use \code{\link{plot.MultiMAP}}, \code{\link{summary.MultiMAP}},
-  \code{\link{get_output}} and \code{\link{report_norm}} on it.
+  \code{\link{get_output}} and \code{\link{REPORT_norm}} on it.
 }
 \description{
 Builds robustified meta-analytic-predictive (MAP) priors (via \code{RBesT::gMAP}) 
@@ -150,5 +150,5 @@ clinical trials with historical control information. \emph{Biometrics,
 70}(4), 1023--1032. \doi{10.1111/biom.12242}
 }
 \seealso{
-\code{\link{SCI_norm}}, \code{\link{report_norm}}
+\code{\link{SCI_norm}}, \code{\link{REPORT_norm}}
 }
