@@ -1,0 +1,32 @@
+Package: MultiMAP
+Title: Simultaneous Credible Intervals Using Meta-Analytic Predictive Prior Distributions
+Version: 0.0.0.9000
+Authors@R:
+    person(given = "Max", family = "Menssen",
+           email = "max.menssen@med.uni-goettingen.de", role = c("aut", "cre"))
+Description: Simultaneous credible intervals for multi-arm studies that
+    incorporate historical controls or other external data via meta-analytic predictive (MAP)
+    prior distributions. Also provides MAP-based prediction intervals for a
+    quality check of the concurrent control, as desired by many OECD test
+    guidelines for regulatory toxicology studies. Normally distributed, binomial
+    and Poisson endpoints are supported.
+License: GPL-3
+Encoding: UTF-8
+Imports:
+    RBesT,
+    multcomp,
+    mratios,
+    BSagri,
+    predint,
+    ggplot2,
+    stats,
+    tools,
+    parallel,
+    utils
+Suggests:
+    knitr,
+    quarto,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Config/roxygen2/version: 8.1.0
