@@ -15,12 +15,12 @@ simultaneous-CI plot, \code{3} prior/likelihood/posterior plot (both
 \code{2} and \code{3} are for \code{SCI_norm} objects only).}
 
 \item{arm}{for multi-arm objects (\code{histdat} supplied as a named list)
-only: which borrowed arm the per-arm prediction-interval (\code{which = 1})
-and prior/likelihood/posterior (\code{which = 3}) plots refer to. \code{NULL}
-(the default) draws every borrowed arm as its own sub-panel
-(\code{ggplot2::facet_wrap}); giving an arm name restricts the plot to that
-single arm. Ignored for single-arm objects and for the simultaneous-CI plot
-(\code{which = 2}).}
+only. \code{NULL} (the default) draws one sub-panel per arm via
+\code{ggplot2::facet_wrap}: the prediction-interval plot (\code{which = 1})
+covers the borrowed arms, while the prior/likelihood/posterior plot
+(\code{which = 3}) covers \emph{all} arms (borrowing and non-borrowing).
+Giving a (borrowed) arm name restricts the plot to that single arm. Ignored
+for single-arm objects and for the simultaneous-CI plot (\code{which = 2}).}
 
 \item{...}{forwarded to the prediction-interval plot, namely:
 \describe{
@@ -54,7 +54,10 @@ depending on how the object was produced:
     \code{which = 1} prediction-interval plot (default);
     \code{which = 2} simultaneous credible-interval plot;
     \code{which = 3} the prior, likelihood and posterior of the concurrent
-    control overlaid (visualises shrinkage).
+    control overlaid (visualises shrinkage). For a multi-arm object this is one
+    sub-panel per arm: borrowing arms show their robustified prior, and
+    non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a flat prior
+    with the posterior coinciding with the likelihood (no shrinkage).
 }
 For a normal endpoint the prediction-interval plot is a continuous density
 with the interval shaded; for a binomial endpoint it is the discrete

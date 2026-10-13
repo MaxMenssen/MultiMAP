@@ -12,7 +12,10 @@
 #'     \code{which = 1} prediction-interval plot (default);
 #'     \code{which = 2} simultaneous credible-interval plot;
 #'     \code{which = 3} the prior, likelihood and posterior of the concurrent
-#'     control overlaid (visualises shrinkage).
+#'     control overlaid (visualises shrinkage). For a multi-arm object this is one
+#'     sub-panel per arm: borrowing arms show their robustified prior, and
+#'     non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a flat prior
+#'     with the posterior coinciding with the likelihood (no shrinkage).
 #' }
 #' For a normal endpoint the prediction-interval plot is a continuous density
 #' with the interval shaded; for a binomial endpoint it is the discrete
@@ -26,12 +29,12 @@
 #'   simultaneous-CI plot, \code{3} prior/likelihood/posterior plot (both
 #'   \code{2} and \code{3} are for \code{SCI_norm} objects only).
 #' @param arm for multi-arm objects (\code{histdat} supplied as a named list)
-#'   only: which borrowed arm the per-arm prediction-interval (\code{which = 1})
-#'   and prior/likelihood/posterior (\code{which = 3}) plots refer to. \code{NULL}
-#'   (the default) draws every borrowed arm as its own sub-panel
-#'   (\code{ggplot2::facet_wrap}); giving an arm name restricts the plot to that
-#'   single arm. Ignored for single-arm objects and for the simultaneous-CI plot
-#'   (\code{which = 2}).
+#'   only. \code{NULL} (the default) draws one sub-panel per arm via
+#'   \code{ggplot2::facet_wrap}: the prediction-interval plot (\code{which = 1})
+#'   covers the borrowed arms, while the prior/likelihood/posterior plot
+#'   (\code{which = 3}) covers \emph{all} arms (borrowing and non-borrowing).
+#'   Giving a (borrowed) arm name restricts the plot to that single arm. Ignored
+#'   for single-arm objects and for the simultaneous-CI plot (\code{which = 2}).
 #' @param ... forwarded to the prediction-interval plot, namely:
 #'   \describe{
 #'     \item{\code{shade_pi}}{\code{TRUE} (default) shades the prediction interval
@@ -264,6 +267,13 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                 cols <- c("#E69F00", "#56B4E9", "#009E73")
                 names(cols) <- c(lik_lab, prior_lab, post_lab)
 
+                # RBesT-style line types: the posterior (the result) is a solid
+                # line, likelihood and prior are dashed. The posterior is drawn
+                # first (underneath, via the factor level order below) so the dashed
+                # curves on top reveal it wherever the densities coincide.
+                ltys <- c("dashed", "dashed", "solid")
+                names(ltys) <- c(lik_lab, prior_lab, post_lab)
+
                 #============ binomial: densities on the proportion scale =======
                 if(identical(x$distr, "betabinomial")){
 
@@ -296,16 +306,16 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                                 data.frame(x = xx0[keep], density = d_pri[keep], Distribution = prior_lab),
                                 data.frame(x = xx0[keep], density = d_pos[keep], Distribution = post_lab))
                         dens$Distribution <- factor(dens$Distribution,
-                                levels = c(lik_lab, prior_lab, post_lab))
+                                levels = c(post_lab, prior_lab, lik_lab))
 
-                        return(ggplot(dens, aes(x = x, y = density, colour = Distribution)) +
+                        return(ggplot(dens, aes(x = x, y = density, colour = Distribution, linetype = Distribution)) +
                                        theme_bw() +
                                        geom_line(linewidth = 1) +
                                        geom_vline(xintercept = ccg_mean,  colour = cols[[lik_lab]],
                                                   linetype = "dashed") +
                                        geom_vline(xintercept = post_mean, colour = cols[[post_lab]],
                                                   linetype = "dashed") +
-                                       scale_colour_manual(values = cols) +
+                                       scale_colour_manual(values = cols, breaks = c(lik_lab, prior_lab, post_lab)) + scale_linetype_manual(values = ltys, breaks = c(lik_lab, prior_lab, post_lab)) +
                                        ylab("density") + xlab("concurrent control proportion") +
                                        ggtitle("Prior, likelihood and posterior"))
                 }
@@ -342,16 +352,16 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                                 data.frame(x = xx0[keep], density = d_pri[keep], Distribution = prior_lab),
                                 data.frame(x = xx0[keep], density = d_pos[keep], Distribution = post_lab))
                         dens$Distribution <- factor(dens$Distribution,
-                                levels = c(lik_lab, prior_lab, post_lab))
+                                levels = c(post_lab, prior_lab, lik_lab))
 
-                        return(ggplot(dens, aes(x = x, y = density, colour = Distribution)) +
+                        return(ggplot(dens, aes(x = x, y = density, colour = Distribution, linetype = Distribution)) +
                                        theme_bw() +
                                        geom_line(linewidth = 1) +
                                        geom_vline(xintercept = ccg_mean,  colour = cols[[lik_lab]],
                                                   linetype = "dashed") +
                                        geom_vline(xintercept = post_mean, colour = cols[[post_lab]],
                                                   linetype = "dashed") +
-                                       scale_colour_manual(values = cols) +
+                                       scale_colour_manual(values = cols, breaks = c(lik_lab, prior_lab, post_lab)) + scale_linetype_manual(values = ltys, breaks = c(lik_lab, prior_lab, post_lab)) +
                                        ylab("density") + xlab("concurrent control rate") +
                                        ggtitle("Prior, likelihood and posterior"))
                 }
@@ -376,19 +386,19 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                         data.frame(x = xx, density = RBesT::dmix(post_mix, xx),
                                    Distribution = post_lab))
                 dens$Distribution <- factor(dens$Distribution,
-                        levels = c(lik_lab, prior_lab, post_lab))
+                        levels = c(post_lab, prior_lab, lik_lab))
 
                 # exact posterior-mixture mean (raw mean = ccg_mean); gap = shrinkage
                 post_mean <- sum(post_mix["w", ] * post_mix["m", ])
 
-                ggplot(dens, aes(x = x, y = density, colour = Distribution)) +
+                ggplot(dens, aes(x = x, y = density, colour = Distribution, linetype = Distribution)) +
                         theme_bw() +
                         geom_line(linewidth = 1) +
                         geom_vline(xintercept = ccg_mean,  colour = cols[[lik_lab]],
                                    linetype = "dashed") +
                         geom_vline(xintercept = post_mean, colour = cols[[post_lab]],
                                    linetype = "dashed") +
-                        scale_colour_manual(values = cols) +
+                        scale_colour_manual(values = cols, breaks = c(lik_lab, prior_lab, post_lab)) + scale_linetype_manual(values = ltys, breaks = c(lik_lab, prior_lab, post_lab)) +
                         ylab("density") + xlab("concurrent control mean") +
                         ggtitle("Prior, likelihood and posterior")
         }
@@ -505,102 +515,146 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
         }
 
         #-------------------- helper: multi-arm prior/likelihood/posterior facets
-        # Same overlay as plot_prior_lik_post() but with one sub-panel per
-        # borrowed arm (SCI input only; needs the per-arm posterior + newdat).
+        # Same overlay as plot_prior_lik_post() but with one sub-panel per arm
+        # (SCI input only; needs newdat). Borrowed arms use their robustified MAP
+        # prior + borrowed posterior. Non-borrowing arms have no informative prior:
+        # their likelihood and (flat-prior) posterior coincide -- so the panel
+        # shows no shrinkage -- and their uninformative prior is drawn as a flat
+        # (uniform-over-window) line; their strip is marked "(no borrowing)".
         plot_plp_facets <- function(x){
 
-                arms      <- x$borrow_arms
+                arms_all  <- as.character(x$newdat$group)   # all arms, trial order
+                borrow    <- x$borrow_arms
                 lik_lab   <- "Likelihood (CCG data)"
                 prior_lab <- "Prior (robustified)"
                 post_lab  <- "Posterior"
                 cols        <- c("#E69F00", "#56B4E9", "#009E73")
                 names(cols) <- c(lik_lab, prior_lab, post_lab)
-                grp <- as.character(x$newdat$group)
+                # RBesT-style line types: solid posterior, dashed likelihood/prior
+                # (the posterior is drawn underneath; see the factor level order).
+                ltys        <- c("dashed", "dashed", "solid")
+                names(ltys) <- c(lik_lab, prior_lab, post_lab)
+                grp <- arms_all
+                eps <- 0.001   # near-flat Gamma(eps, eps) prior used by SCI_pois()
 
                 dens_l <- list(); ccg_l <- list(); post_l <- list()
 
-                for(a in arms){
-                        prior_mix <- x$prior_rob[[a]]
-                        post_mix  <- x$posterior[[a]]
-                        idx       <- match(a, grp)
+                for(a in arms_all){
+                        idx  <- match(a, grp)
+                        is_b <- a %in% borrow
+                        lab  <- if(is_b) a else paste0(a, " (no borrowing)")
 
                         if(identical(x$distr, "betabinomial")){
                                 r0 <- x$newdat[idx, 2]; n0 <- x$newdat[idx, 2] + x$newdat[idx, 3]
                                 ccg_mean <- x$newdat$mean[idx]
-                                post_mean <- sum(post_mix["w", ] *
-                                                 post_mix["a", ] / (post_mix["a", ] + post_mix["b", ]))
-                                # Fine [0, 1] grid, then focus on the informative
-                                # region (envelope >= 1% of its peak, widened to the
-                                # observed and posterior means).
                                 xx0   <- seq(0, 1, length.out = 1024)
                                 d_lik <- stats::dbeta(xx0, r0 + 1, n0 - r0 + 1)
-                                d_pri <- RBesT::dmix(prior_mix, xx0)
-                                d_pos <- RBesT::dmix(post_mix,  xx0)
-                                win   <- .info_window(xx0, pmax(d_lik, d_pri, d_pos),
-                                                      include = c(ccg_mean, post_mean))
-                                keep  <- xx0 >= win[1] & xx0 <= win[2]
-                                dens  <- rbind(
-                                        data.frame(x = xx0[keep], density = d_lik[keep], Distribution = lik_lab),
-                                        data.frame(x = xx0[keep], density = d_pri[keep], Distribution = prior_lab),
-                                        data.frame(x = xx0[keep], density = d_pos[keep], Distribution = post_lab))
+                                if(is_b){
+                                        prior_mix <- x$prior_rob[[a]]; post_mix <- x$posterior[[a]]
+                                        d_pri <- RBesT::dmix(prior_mix, xx0)
+                                        d_pos <- RBesT::dmix(post_mix,  xx0)
+                                        post_mean <- sum(post_mix["w", ] * post_mix["a", ] /
+                                                         (post_mix["a", ] + post_mix["b", ]))
+                                } else {
+                                        # Beta(1, 1) prior -> posterior Beta(1 + ev, 1 + non-ev) = likelihood
+                                        d_pos     <- d_lik
+                                        post_mean <- (r0 + 1) / (n0 + 2)
+                                }
                         } else if(identical(x$distr, "poisson")){
                                 y_ccg <- x$newdat[idx, 2]; t_ccg <- x$newdat[idx, 3]
                                 ccg_mean <- x$newdat$mean[idx]
-                                post_mean <- sum(post_mix["w", ] * post_mix["a", ] / post_mix["b", ])
-                                hi0 <- max(RBesT::qmix(prior_mix, 0.999),
-                                           RBesT::qmix(post_mix,  0.999),
-                                           stats::qgamma(0.999, shape = y_ccg + 1, rate = t_ccg))
-                                xx0   <- seq(0, hi0, length.out = 1024)
-                                d_lik <- dgamma(xx0, shape = y_ccg + 1, rate = t_ccg)
-                                d_pri <- RBesT::dmix(prior_mix, xx0)
-                                d_pos <- RBesT::dmix(post_mix,  xx0)
-                                win   <- .info_window(xx0, pmax(d_lik, d_pri, d_pos),
-                                                      include = c(ccg_mean, post_mean))
-                                keep  <- xx0 >= max(0, win[1]) & xx0 <= win[2]
-                                dens  <- rbind(
-                                        data.frame(x = xx0[keep], density = d_lik[keep], Distribution = lik_lab),
-                                        data.frame(x = xx0[keep], density = d_pri[keep], Distribution = prior_lab),
-                                        data.frame(x = xx0[keep], density = d_pos[keep], Distribution = post_lab))
+                                if(is_b){
+                                        prior_mix <- x$prior_rob[[a]]; post_mix <- x$posterior[[a]]
+                                        hi0 <- max(RBesT::qmix(prior_mix, 0.999), RBesT::qmix(post_mix, 0.999),
+                                                   stats::qgamma(0.999, shape = y_ccg + 1, rate = t_ccg))
+                                        xx0   <- seq(0, hi0, length.out = 1024)
+                                        d_lik <- dgamma(xx0, shape = y_ccg + 1, rate = t_ccg)
+                                        d_pri <- RBesT::dmix(prior_mix, xx0)
+                                        d_pos <- RBesT::dmix(post_mix,  xx0)
+                                        post_mean <- sum(post_mix["w", ] * post_mix["a", ] / post_mix["b", ])
+                                } else {
+                                        # Gamma(eps, eps) prior -> posterior Gamma(eps + ev, eps + off)
+                                        hi0 <- max(stats::qgamma(0.999, shape = y_ccg + 1,   rate = t_ccg),
+                                                   stats::qgamma(0.999, shape = eps + y_ccg, rate = eps + t_ccg))
+                                        xx0   <- seq(0, hi0, length.out = 1024)
+                                        d_lik <- dgamma(xx0, shape = y_ccg + 1,   rate = t_ccg)
+                                        d_pos <- dgamma(xx0, shape = eps + y_ccg, rate = eps + t_ccg)
+                                        post_mean <- (eps + y_ccg) / (eps + t_ccg)
+                                }
                         } else {
                                 ccg_mean <- x$newdat$mean[idx]
                                 ccg_se   <- x$newdat$sd[idx] / sqrt(x$newdat$n[idx])
-                                rng <- range(RBesT::qmix(prior_mix, c(0.005, 0.995)),
-                                             RBesT::qmix(post_mix,  c(0.005, 0.995)),
-                                             ccg_mean + c(-4, 4) * ccg_se)
-                                xx  <- seq(rng[1], rng[2], length.out = 512)
-                                dens <- rbind(
-                                        data.frame(x = xx, density = dnorm(xx, ccg_mean, ccg_se),
-                                                   Distribution = lik_lab),
-                                        data.frame(x = xx, density = RBesT::dmix(prior_mix, xx),
-                                                   Distribution = prior_lab),
-                                        data.frame(x = xx, density = RBesT::dmix(post_mix, xx),
-                                                   Distribution = post_lab))
-                                post_mean <- sum(post_mix["w", ] * post_mix["m", ])
+                                if(is_b){
+                                        prior_mix <- x$prior_rob[[a]]; post_mix <- x$posterior[[a]]
+                                        rng <- range(RBesT::qmix(prior_mix, c(0.005, 0.995)),
+                                                     RBesT::qmix(post_mix,  c(0.005, 0.995)),
+                                                     ccg_mean + c(-4, 4) * ccg_se)
+                                        xx0   <- seq(rng[1], rng[2], length.out = 1024)
+                                        d_lik <- dnorm(xx0, ccg_mean, ccg_se)
+                                        d_pri <- RBesT::dmix(prior_mix, xx0)
+                                        d_pos <- RBesT::dmix(post_mix,  xx0)
+                                        post_mean <- sum(post_mix["w", ] * post_mix["m", ])
+                                } else {
+                                        # Flat prior on the mean -> posterior N(ybar, se) = likelihood
+                                        xx0   <- seq(ccg_mean - 4 * ccg_se, ccg_mean + 4 * ccg_se, length.out = 1024)
+                                        d_lik <- dnorm(xx0, ccg_mean, ccg_se)
+                                        d_pos <- d_lik
+                                        post_mean <- ccg_mean
+                                }
                         }
 
-                        dens$arm     <- a
+                        # Non-finite guard (e.g. Gamma shape < 1 at 0 for a 0-event
+                        # non-borrowing arm): drop from both the window and the lines.
+                        d_lik[!is.finite(d_lik)] <- NA
+                        d_pos[!is.finite(d_pos)] <- NA
+
+                        # Window from the envelope. For non-borrowing arms the flat
+                        # prior is excluded so it cannot stretch the range.
+                        env  <- if(is_b) pmax(d_lik, d_pri, d_pos, na.rm = TRUE)
+                                else     pmax(d_lik, d_pos, na.rm = TRUE)
+                        win  <- .info_window(xx0, env, include = c(ccg_mean, post_mean))
+                        keep <- xx0 >= win[1] & xx0 <= win[2]
+                        xk   <- xx0[keep]
+
+                        if(is_b){
+                                d_prik <- d_pri[keep]
+                        } else {
+                                # Uninformative prior drawn as a flat (uniform) line.
+                                wdt    <- diff(range(xk)); if(!is.finite(wdt) || wdt <= 0) wdt <- 1
+                                d_prik <- rep(1 / wdt, length(xk))
+                        }
+
+                        dens <- rbind(
+                                data.frame(x = xk, density = d_lik[keep], Distribution = lik_lab),
+                                data.frame(x = xk, density = d_prik,      Distribution = prior_lab),
+                                data.frame(x = xk, density = d_pos[keep], Distribution = post_lab))
+                        dens$arm     <- lab
                         dens_l[[a]]  <- dens
-                        ccg_l[[a]]   <- data.frame(arm = a, xintercept = ccg_mean)
-                        post_l[[a]]  <- data.frame(arm = a, xintercept = post_mean)
+                        ccg_l[[a]]   <- data.frame(arm = lab, xintercept = ccg_mean)
+                        post_l[[a]]  <- data.frame(arm = lab, xintercept = post_mean)
                 }
 
+                # Facet order = trial order; non-borrowing strips carry a suffix.
+                lev <- unname(vapply(arms_all,
+                                     function(a) if(a %in% borrow) a else paste0(a, " (no borrowing)"),
+                                     character(1)))
                 dens              <- do.call(rbind, dens_l)
-                dens$Distribution <- factor(dens$Distribution, levels = c(lik_lab, prior_lab, post_lab))
-                dens$arm          <- factor(dens$arm, levels = arms)
-                ccg_df            <- do.call(rbind, ccg_l);  ccg_df$arm  <- factor(ccg_df$arm,  levels = arms)
-                post_df           <- do.call(rbind, post_l); post_df$arm <- factor(post_df$arm, levels = arms)
+                dens$Distribution <- factor(dens$Distribution, levels = c(post_lab, prior_lab, lik_lab))
+                dens$arm          <- factor(dens$arm, levels = lev)
+                ccg_df            <- do.call(rbind, ccg_l);  ccg_df$arm  <- factor(ccg_df$arm,  levels = lev)
+                post_df           <- do.call(rbind, post_l); post_df$arm <- factor(post_df$arm, levels = lev)
 
-                xlab_txt <- switch(x$distr, betabinomial = "concurrent control proportion",
-                                   poisson = "concurrent control rate", "concurrent control mean")
+                xlab_txt <- switch(x$distr, betabinomial = "proportion",
+                                   poisson = "rate", "mean")
 
-                ggplot(dens, aes(x = x, y = density, colour = Distribution)) +
+                ggplot(dens, aes(x = x, y = density, colour = Distribution, linetype = Distribution)) +
                         theme_bw() +
-                        geom_line(linewidth = 1) +
+                        geom_line(linewidth = 1, na.rm = TRUE) +
                         geom_vline(data = ccg_df,  aes(xintercept = xintercept),
                                    colour = cols[[lik_lab]],  linetype = "dashed") +
                         geom_vline(data = post_df, aes(xintercept = xintercept),
                                    colour = cols[[post_lab]], linetype = "dashed") +
-                        scale_colour_manual(values = cols) +
+                        scale_colour_manual(values = cols, breaks = c(lik_lab, prior_lab, post_lab)) + scale_linetype_manual(values = ltys, breaks = c(lik_lab, prior_lab, post_lab)) +
                         facet_wrap(~ arm, scales = "free") +
                         ylab("density") + xlab(xlab_txt) +
                         ggtitle("Prior, likelihood and posterior")

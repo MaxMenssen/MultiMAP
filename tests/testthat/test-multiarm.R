@@ -87,19 +87,19 @@ test_that("summary() and print() work on a multi-arm object", {
         expect_output(print(res),   "control")
 })
 
-test_that("multi-arm plot draws one sub-panel per borrowed arm", {
+test_that("multi-arm plot draws one sub-panel per arm", {
         skip_if_not_installed("ggplot2")
-        d   <- make_binom_ma()
+        d   <- make_binom_ma()  # borrows 2 arms (control, d454); d1 is non-borrowing
         res <- suppressWarnings(SCI_binom(d$hist, d$newdat, prior_est = "EB", seed = 1))
 
         n_panels <- function(g) nrow(ggplot2::ggplot_build(g)$layout$layout)
 
-        # which = 1 (prediction interval) and which = 3 (prior/lik/post): one
-        # panel per borrowed arm by default (the bug fix).
+        # which = 1 (prediction interval): one panel per BORROWED arm.
         expect_equal(n_panels(plot(res, which = 1)), 2L)
-        expect_equal(n_panels(plot(res, which = 3)), 2L)
+        # which = 3 (prior/lik/post): one panel per arm, including non-borrowing.
+        expect_equal(n_panels(plot(res, which = 3)), 3L)
 
-        # a named 'arm' restricts to that single arm ...
+        # a named 'arm' restricts to that single (borrowed) arm ...
         expect_equal(n_panels(plot(res, which = 1, arm = "d454")), 1L)
         # ... and the simultaneous-CI plot (which = 2) is a single panel.
         expect_equal(n_panels(plot(res, which = 2)), 1L)
