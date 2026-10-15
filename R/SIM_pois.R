@@ -61,7 +61,7 @@
 #'   \code{"rate_diff"} (difference of rates).
 #' @param limits \code{"two.sided"} (default), \code{"lower"} or
 #'   \code{"upper"} (drives the reject decision; passed to \code{\link{SCI_pois}}).
-#' @param base index of the control group in the contrast matrix.
+#' @param base integer index of the control group in the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param tau_prior,beta_prior optional overrides for the \code{gMAP} between-study
 #'   heterogeneity and intercept priors (on the log-rate scale), passed to
@@ -81,6 +81,10 @@
 #'   stream is assigned per replicate, so the study is reproducible AND identical
 #'   whether run serially or in parallel and regardless of the number of workers.
 #'   \code{NULL} gives a non-reproducible run.
+#' @param nonborrow_prior length-2 numeric \code{c(shape, rate)} for the
+#'   non-borrowing gamma prior, passed to \code{\link{SCI_pois}} (default
+#'   \code{c(0.5, 0.001)}); lets a simulation study vary the prior on the arms
+#'   that do not borrow.
 #'
 #' @return A one-row data frame of operating characteristics, including
 #'   \code{fwer}, \code{power}, \code{pi_t1e} / \code{pi_power} (the
@@ -132,7 +136,8 @@ SIM_pois <- function(n_sim,
                      n_mcmc      = 50000,
                      parallel    = TRUE,
                      n_cores     = NULL,
-                     seed        = NULL){
+                     seed        = NULL,
+                     nonborrow_prior = c(0.5, 0.001)){
 
         # Number of treatment groups is defined by length(shift)
         m           <- length(shift)
@@ -144,6 +149,8 @@ SIM_pois <- function(n_sim,
 
         if(!is.numeric(lambda) || length(lambda) != 1 || lambda <= 0)
                 stop("'lambda' must be a single positive number.")
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base != round(base))
+                stop("'base' must be a single whole-number group index.")
         if(!prior_est %in% c("MAP", "EB", "ignore_HCD"))
                 stop("'prior_est' must be 'MAP', 'EB' or 'ignore_HCD'.")
         if(prior_est == "ignore_HCD" && contr != "rate_ratio")
@@ -293,7 +300,8 @@ SIM_pois <- function(n_sim,
                                           prior_est = prior_est, type = type, contr = contr,
                                           limits = limits, base = base,
                                           robust = robust, tau_prior = tau_prior,
-                                          beta_prior = beta_prior, alpha = alpha, n_mcmc = n_mcmc)),
+                                          beta_prior = beta_prior, alpha = alpha, n_mcmc = n_mcmc,
+                                          nonborrow_prior = nonborrow_prior)),
                            silent = TRUE)
                 if(inherits(fit, "try-error")) return(NULL)
                 op_char(fit)

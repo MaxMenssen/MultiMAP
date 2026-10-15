@@ -19,7 +19,8 @@ SCI_binom(
   beta_prior = NULL,
   alpha = 0.05,
   n_mcmc = 50000,
-  seed = NULL
+  seed = NULL,
+  nonborrow_prior = c(1, 1)
 )
 }
 \arguments{
@@ -31,7 +32,7 @@ To borrow for more than one arm, pass a \emph{named list}
    data for a particular study-arm.}
 
 \item{newdat}{a data.frame containing the current trial; columns \code{group}, \code{events},
-\code{non_events}. In case for borrowing for the control group: Row 1 is the concurrent 
+\code{non_events}. In case for borrowing for the control group: Row 1 is the concurrent
 control, the remaining rows are treatment groups.}
 
 \item{prior_est}{\code{"MAP"} (a meta-analytic-predictive prior via \code{RBesT::gMAP}) 
@@ -51,27 +52,27 @@ control proportion: either \code{"two.sided"}, \code{"lower"} or
 \code{"upper"}. Defaults to \code{limits} so that, unless set, the
 prediction interval follows the contrasts' one- or two-sidedness.}
 
-\item{base}{index of the control group for the contrast matrix.}
+\item{base}{integer index of the control group for the contrast matrix.}
 
 \item{robust}{weight of the weakly-informative (robust) prior component.}
 
 \item{tau_prior}{optional override for the \code{gMAP} between-study
 heterogeneity prior (\code{tau.prior} in \code{RBesT::gMAP}), on the logit
-scale. If \code{NULL}, a \code{HalfNormal} scale of 1 for a mean proportion 
-in [0.2, 0.8] is used, otherwise the \code{HalfNormal} scale is set to 
-\code{(1 / sqrt(p_bar (1 - p_bar)) / 2}). Supply any \code{cbind(0, scale)} to override.}
+scale. If \code{NULL}, a \code{HalfNormal} scale of 1 is used. Supply any
+\code{cbind(0, scale)} to override.}
 
 \item{tau_dist}{distribution family of the \code{gMAP} between-study
 heterogeneity prior (\code{tau.dist} in \code{RBesT::gMAP}); one of
 \code{"HalfNormal"} (the default), \code{"TruncNormal"}, \code{"Uniform"},
 \code{"Gamma"}, \code{"InvGamma"}, \code{"LogNormal"}, \code{"TruncCauchy"},
 \code{"Exp"} or \code{"Fixed"}. The built-in default \code{tau_prior}
-heuristic is calibrated for the half-normal, so when \code{tau_dist} is set
+is calibrated for the half-normal, so when \code{tau_dist} is set
 to any other family a matching \code{tau_prior} must also be supplied.}
 
 \item{beta_prior}{optional override for the \code{gMAP} intercept prior
 (\code{beta.prior} in \code{RBesT::gMAP}), on the logit scale. If \code{NULL},
-a normal(0, 2) is used.}
+a \code{Normal(logit(pooled rate), 2)} centred on the pooled historical rate
+is used.}
 
 \item{alpha}{1 - simultaneous confidence level.}
 
@@ -81,6 +82,12 @@ a normal(0, 2) is used.}
 the \code{gMAP} MCMC (for \code{prior_est = "MAP"}) and the Monte-Carlo
 sampling are reproducible. \code{NULL} (default) leaves the RNG state
 untouched.}
+
+\item{nonborrow_prior}{length-2 numeric \code{c(a, b)} giving the Beta prior
+applied to the non-borrowing arms (the treatment arms in single-arm
+borrowing, and any arm without its own historical data set in multi-arm
+borrowing). The default \code{c(1, 1)} is the uniform Beta(1, 1) prior; the
+posterior of a non-borrowing arm is \code{Beta(a + events, b + non-events)}.}
 }
 \value{
 A MultiMAP object: a named list with S3 class
@@ -120,8 +127,9 @@ A MultiMAP object: a named list with S3 class
       shrinkage of the concurrent control proportion towards the borrowed
       prior and its relative version (absolute shrinkage divided by the raw
       concurrent control proportion).}
-    \item{\code{simpost}}{matrix of posterior Monte-Carlo samples (control plus
-      one column per treatment group).}
+    \item{\code{simpost}}{matrix of posterior Monte-Carlo samples on the
+      proportion scale (control plus one column per treatment group; columns
+      named by group).}
     \item{\code{tau_prior}}{a list with the gMAP between-study heterogeneity
       prior distribution name (\code{dist}) and its parameters (\code{prior})
       actually used (\code{NA} for the EB prior).}
@@ -130,6 +138,15 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+  \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+  \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+  become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+  \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+  are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+  Access these through \code{\link{get_output}}, \code{summary} or
+  \code{print} rather than by indexing the slots directly.
 }
 \description{
 Bayesian dynamic borrowing for a binomial endpoint following Menssen et al. 2026. 
@@ -140,6 +157,12 @@ non-informative beta(1,1) component; (3) update to posteriors with the current
 control data; (4) draw samples from the joint posterior; 
 (5) derive SIMULTANEOUS credible sets for the comparisons of interest 
 based on the joint posterior
+}
+\details{
+\code{histdat} and \code{newdat} columns are matched by name when all the
+  expected names are present, so they may be supplied in any order; otherwise the
+  first columns are read by position (with a message). Their values must be
+  finite, with \code{events} and \code{non_events} non-negative whole numbers.
 }
 \examples{
 \donttest{

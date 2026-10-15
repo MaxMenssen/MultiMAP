@@ -60,7 +60,9 @@
 #'                       non_events = c(22, 16, 13))
 #' res <- SCI_binom(histdat, newdat, prior_est = "MAP",
 #'                  contr = "pi_diff", seed = 1)
-#' REPORT_binom(res)   # writes into tempdir()
+#' out <- tempfile(fileext = ".qmd")   # a unique file, removed below
+#' REPORT_binom(res, file = out)
+#' file.remove(out)
 #' }
 #' @export
 REPORT_binom <- function(x,

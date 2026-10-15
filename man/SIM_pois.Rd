@@ -27,7 +27,8 @@ SIM_pois(
   n_mcmc = 50000,
   parallel = TRUE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  nonborrow_prior = c(0.5, 0.001)
 )
 }
 \arguments{
@@ -84,7 +85,7 @@ pairwise contrast labels.}
 \item{limits}{\code{"two.sided"} (default), \code{"lower"} or
 \code{"upper"} (drives the reject decision; passed to \code{\link{SCI_pois}}).}
 
-\item{base}{index of the control group in the contrast matrix.}
+\item{base}{integer index of the control group in the contrast matrix.}
 
 \item{robust}{weight of the weakly-informative (robust) prior component.}
 
@@ -111,6 +112,11 @@ built-in heuristics, whose reference scale is floored so the default
 stream is assigned per replicate, so the study is reproducible AND identical
 whether run serially or in parallel and regardless of the number of workers.
 \code{NULL} gives a non-reproducible run.}
+
+\item{nonborrow_prior}{length-2 numeric \code{c(shape, rate)} for the
+non-borrowing gamma prior, passed to \code{\link{SCI_pois}} (default
+\code{c(0.5, 0.001)}); lets a simulation study vary the prior on the arms
+that do not borrow.}
 }
 \value{
 A one-row data frame of operating characteristics, including

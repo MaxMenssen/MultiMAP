@@ -61,7 +61,7 @@
 #'   (odds ratio) or \code{"pi_diff"} (difference of proportions).
 #' @param limits \code{"two.sided"} (default), \code{"lower"} or
 #'   \code{"upper"} (drives the reject decision; passed to \code{\link{SCI_binom}}).
-#' @param base index of the control group in the contrast matrix.
+#' @param base integer index of the control group in the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param tau_prior,beta_prior optional overrides for the \code{gMAP} between-study
 #'   heterogeneity and intercept priors, passed to \code{\link{SCI_binom}} (MAP
@@ -78,6 +78,10 @@
 #'   stream is assigned per replicate, so the study is reproducible AND identical
 #'   whether run serially or in parallel and regardless of the number of workers.
 #'   \code{NULL} gives a non-reproducible run.
+#' @param nonborrow_prior length-2 numeric \code{c(a, b)} for the non-borrowing
+#'   Beta prior, passed to \code{\link{SCI_binom}} (default \code{c(1, 1)}, the
+#'   uniform prior); lets a simulation study vary the prior on the arms that do
+#'   not borrow.
 #'
 #' @return A one-row data frame of operating characteristics, including:
 #'   \describe{
@@ -144,7 +148,8 @@ SIM_binom <- function(n_sim,
                       n_mcmc      = 50000,
                       parallel    = TRUE,
                       n_cores     = NULL,
-                      seed        = NULL){
+                      seed        = NULL,
+                      nonborrow_prior = c(1, 1)){
 
         # Number of treatment groups is defined by length(shift)
         m           <- length(shift)
@@ -156,6 +161,8 @@ SIM_binom <- function(n_sim,
 
         if(!is.numeric(pi) || length(pi) != 1 || pi <= 0 || pi >= 1)
                 stop("'pi' must be a single number in (0, 1).")
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base != round(base))
+                stop("'base' must be a single whole-number group index.")
         if(!prior_est %in% c("MAP", "EB", "ignore_HCD"))
                 stop("'prior_est' must be 'MAP', 'EB' or 'ignore_HCD'.")
         if(prior_est == "ignore_HCD" && contr != "OR")
@@ -313,7 +320,8 @@ SIM_binom <- function(n_sim,
                                            prior_est = prior_est, type = type, contr = contr,
                                            limits = limits, base = base,
                                            robust = robust, tau_prior = tau_prior,
-                                           beta_prior = beta_prior, alpha = alpha, n_mcmc = n_mcmc)),
+                                           beta_prior = beta_prior, alpha = alpha, n_mcmc = n_mcmc,
+                                           nonborrow_prior = nonborrow_prior)),
                            silent = TRUE)
                 if(inherits(fit, "try-error")) return(NULL)
                 op_char(fit)

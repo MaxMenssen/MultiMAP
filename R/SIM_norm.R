@@ -46,7 +46,7 @@
 #' @param limits \code{"two.sided"} (default), \code{"lower"} or
 #'   \code{"upper"} (drives the reject decision; passed through to
 #'   \code{\link{SCI_norm}}).
-#' @param base index of the control group in the contrast matrix.
+#' @param base integer index of the control group in the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param sigma reference scale for the RBesT Gaussian machinery; \code{NULL}
 #'   estimates it from the historical controls.
@@ -66,6 +66,10 @@
 #'   stream is assigned per replicate, so the study is reproducible AND identical
 #'   whether run serially or in parallel and regardless of the number of workers.
 #'   \code{NULL} gives a non-reproducible run.
+#' @param nonborrow_prior prior on the mean of the non-borrowing arms, passed to
+#'   \code{\link{SCI_norm}}: \code{NULL} (default) is the improper flat prior; a
+#'   length-2 numeric \code{c(mean, sd)} specifies a proper normal prior. Lets a
+#'   simulation study vary the prior on the arms that do not borrow.
 #'
 #' @return A one-row data frame of operating characteristics, including:
 #'   \describe{
@@ -137,7 +141,8 @@ SIM_norm <- function(n_sim,
                          n_mcmc      = 50000,
                          parallel    = TRUE,
                          n_cores     = NULL,
-                         seed        = NULL){
+                         seed        = NULL,
+                         nonborrow_prior = NULL){
 
         # Number of treatment groups is defined by length(shift)
         m           <- length(shift)
@@ -145,6 +150,8 @@ SIM_norm <- function(n_sim,
         limits <- match.arg(limits, c("two.sided", "lower", "upper"))
         # Multiple-comparison type: many-to-one (Dunnett) or all-pairwise (Tukey).
         type        <- match.arg(type, c("Dunnett", "Tukey"))
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base != round(base))
+                stop("'base' must be a single whole-number group index.")
         if(!prior_est %in% c("MAP", "ignore_HCD"))
                 stop("'prior_est' must be 'MAP' or 'ignore_HCD'.")
         if(prior_est == "ignore_HCD" && contr != "mean_diff")
@@ -291,7 +298,8 @@ SIM_norm <- function(n_sim,
                                           limits = limits, base = base,
                                           robust = robust, sigma = sigma,
                                           tau_prior = tau_prior, beta_prior = beta_prior,
-                                          alpha = alpha, n_mcmc = n_mcmc)),
+                                          alpha = alpha, n_mcmc = n_mcmc,
+                                          nonborrow_prior = nonborrow_prior)),
                            silent = TRUE)
                 if(inherits(fit, "try-error")) return(NULL)
                 op_char(fit)

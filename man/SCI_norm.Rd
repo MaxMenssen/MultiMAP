@@ -20,7 +20,8 @@ SCI_norm(
   beta_prior = NULL,
   alpha = 0.05,
   n_mcmc = 50000,
-  seed = NULL
+  seed = NULL,
+  nonborrow_prior = NULL
 )
 }
 \arguments{
@@ -31,7 +32,7 @@ pass a \emph{named list} containing different data frames: each element supplies
 the external data for a particular study-arm.}
 
 \item{newdat}{a data.frame containing the current trial; columns \code{group}, \code{mean}, \code{sd},
-\code{n}. In case for borrowing for the control group: Row 1 is the concurrent 
+\code{n}. In case for borrowing for the control group: Row 1 is the concurrent
 control, the remaining rows are treatment groups.}
 
 \item{prior_est}{currently, only \code{"MAP"} is supported: a
@@ -53,7 +54,7 @@ mean: either \code{"two.sided"}, \code{"lower"} or \code{"upper"}. Default is
 set to \code{limits} so, unless set, the prediction interval follows the
 contrasts' one- or two-sidedness.}
 
-\item{base}{index of the control group for the contrast matrix.}
+\item{base}{integer index of the control group for the contrast matrix.}
 
 \item{robust}{weight of the weakly-informative (robust) prior component.}
 
@@ -87,6 +88,13 @@ built-in heuristic (\code{cbind(grand mean, sigma)}); supply e.g.
 \item{seed}{optional integer; if supplied, \code{set.seed(seed)} is called so
 the \code{gMAP} MCMC and the Monte-Carlo sampling are reproducible.
 \code{NULL} (default) leaves the RNG state untouched.}
+
+\item{nonborrow_prior}{prior on the mean of the non-borrowing arms (the
+treatment arms in single-arm borrowing, and any arm without its own
+historical data set in multi-arm borrowing). \code{NULL} (default) uses an
+improper flat prior, so the posterior is \code{N(ybar, sd / sqrt(n))}. A
+length-2 numeric \code{c(mean, sd)} specifies a proper normal prior that is
+conjugate-updated with the arm likelihood instead.}
 }
 \value{
 A MultiMAP object: a named list with S3 class
@@ -135,6 +143,15 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+  \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+  \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+  become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+  \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+  are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+  Access these through \code{\link{get_output}}, \code{summary} or
+  \code{print} rather than by indexing the slots directly.
   Use \code{\link{plot.MultiMAP}}, \code{\link{print.MultiMAP}},
   \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
   \code{\link{REPORT_norm}} on it.
@@ -148,6 +165,12 @@ non-informative component; (3) update to posteriors with the current
 control data; (4) draw samples from the joint posterior; 
 (5) derive SIMULTANEOUS credible sets for the comparisons of interest 
 based on the joint posterior
+}
+\details{
+\code{histdat} and \code{newdat} columns are matched by name when all the
+  expected names are present, so they may be supplied in any order; otherwise the
+  first columns are read by position (with a message). Their values must be
+  finite, with \code{sd} and \code{n} positive.
 }
 \examples{
 \donttest{

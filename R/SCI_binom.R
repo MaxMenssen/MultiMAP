@@ -16,8 +16,12 @@
 #'   containing different data frames: each element supplies the external
 #'    data for a particular study-arm. 
 #' @param newdat a data.frame containing the current trial; columns \code{group}, \code{events},
-#'   \code{non_events}. In case for borrowing for the control group: Row 1 is the concurrent 
+#'   \code{non_events}. In case for borrowing for the control group: Row 1 is the concurrent
 #'   control, the remaining rows are treatment groups.
+#' @details \code{histdat} and \code{newdat} columns are matched by name when all the
+#'   expected names are present, so they may be supplied in any order; otherwise the
+#'   first columns are read by position (with a message). Their values must be
+#'   finite, with \code{events} and \code{non_events} non-negative whole numbers.
 #' @param prior_est \code{"MAP"} (a meta-analytic-predictive prior via \code{RBesT::gMAP}) 
 #'   or \code{"EB"} (empirical-Bayes beta prior).
 #' @param type type of comparison: either
@@ -30,29 +34,34 @@
 #'   control proportion: either \code{"two.sided"}, \code{"lower"} or
 #'   \code{"upper"}. Defaults to \code{limits} so that, unless set, the
 #'   prediction interval follows the contrasts' one- or two-sidedness.
-#' @param base index of the control group for the contrast matrix.
+#' @param base integer index of the control group for the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param tau_prior optional override for the \code{gMAP} between-study
 #'   heterogeneity prior (\code{tau.prior} in \code{RBesT::gMAP}), on the logit
-#'   scale. If \code{NULL}, a \code{HalfNormal} scale of 1 for a mean proportion 
-#'   in [0.2, 0.8] is used, otherwise the \code{HalfNormal} scale is set to 
-#'   \code{(1 / sqrt(p_bar (1 - p_bar)) / 2}). Supply any \code{cbind(0, scale)} to override.
+#'   scale. If \code{NULL}, a \code{HalfNormal} scale of 1 is used. Supply any
+#'   \code{cbind(0, scale)} to override.
 #' @param tau_dist distribution family of the \code{gMAP} between-study
 #'   heterogeneity prior (\code{tau.dist} in \code{RBesT::gMAP}); one of
 #'   \code{"HalfNormal"} (the default), \code{"TruncNormal"}, \code{"Uniform"},
 #'   \code{"Gamma"}, \code{"InvGamma"}, \code{"LogNormal"}, \code{"TruncCauchy"},
 #'   \code{"Exp"} or \code{"Fixed"}. The built-in default \code{tau_prior}
-#'   heuristic is calibrated for the half-normal, so when \code{tau_dist} is set
+#'   is calibrated for the half-normal, so when \code{tau_dist} is set
 #'   to any other family a matching \code{tau_prior} must also be supplied.
 #' @param beta_prior optional override for the \code{gMAP} intercept prior
 #'   (\code{beta.prior} in \code{RBesT::gMAP}), on the logit scale. If \code{NULL},
-#'   a normal(0, 2) is used.
+#'   a \code{Normal(logit(pooled rate), 2)} centred on the pooled historical rate
+#'   is used.
 #' @param alpha 1 - simultaneous confidence level.
 #' @param n_mcmc total number of Monte-Carlo samples to draw.
 #' @param seed optional integer; if supplied, \code{set.seed(seed)} is called so
 #'   the \code{gMAP} MCMC (for \code{prior_est = "MAP"}) and the Monte-Carlo
 #'   sampling are reproducible. \code{NULL} (default) leaves the RNG state
 #'   untouched.
+#' @param nonborrow_prior length-2 numeric \code{c(a, b)} giving the Beta prior
+#'   applied to the non-borrowing arms (the treatment arms in single-arm
+#'   borrowing, and any arm without its own historical data set in multi-arm
+#'   borrowing). The default \code{c(1, 1)} is the uniform Beta(1, 1) prior; the
+#'   posterior of a non-borrowing arm is \code{Beta(a + events, b + non-events)}.
 #'
 #' @return A MultiMAP object: a named list with S3 class
 #'   \code{c("SCI", "MultiMAP_binom", "MultiMAP")} and the following slots:
@@ -91,8 +100,9 @@
 #'       shrinkage of the concurrent control proportion towards the borrowed
 #'       prior and its relative version (absolute shrinkage divided by the raw
 #'       concurrent control proportion).}
-#'     \item{\code{simpost}}{matrix of posterior Monte-Carlo samples (control plus
-#'       one column per treatment group).}
+#'     \item{\code{simpost}}{matrix of posterior Monte-Carlo samples on the
+#'       proportion scale (control plus one column per treatment group; columns
+#'       named by group).}
 #'     \item{\code{tau_prior}}{a list with the gMAP between-study heterogeneity
 #'       prior distribution name (\code{dist}) and its parameters (\code{prior})
 #'       actually used (\code{NA} for the EB prior).}
@@ -101,6 +111,15 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+#'   \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+#'   \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+#'   become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+#'   \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+#'   are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+#'   Access these through \code{\link{get_output}}, \code{summary} or
+#'   \code{print} rather than by indexing the slots directly.
 #'
 #' @seealso \code{\link{SCI_norm}}
 #'
@@ -206,7 +225,8 @@ SCI_binom <- function(histdat,
                       beta_prior = NULL,
                       alpha = 0.05,
                       n_mcmc = 50000,
-                      seed = NULL){
+                      seed = NULL,
+                      nonborrow_prior = c(1, 1)){
 
         # Optional reproducibility: seeds gMAP()'s MCMC (MAP path) and the
         # Monte-Carlo sampling below.
@@ -246,17 +266,29 @@ SCI_binom <- function(histdat,
                 stop("'robust' must be a single number in [0, 1].")
         if(!is.numeric(alpha) || length(alpha) != 1 || alpha <= 0 || alpha >= 1)
                 stop("'alpha' must be a single number in (0, 1).")
-        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat))
-                stop("'base' must be a single group index in 1:nrow(newdat).")
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat) ||
+           base != round(base))
+                stop("'base' must be a single whole-number group index in 1:nrow(newdat).")
+        if(!is.numeric(nonborrow_prior) || length(nonborrow_prior) != 2 ||
+           any(!is.finite(nonborrow_prior)) || any(nonborrow_prior <= 0))
+                stop("'nonborrow_prior' must be two positive numbers c(a, b) for the non-borrowing Beta prior.")
+
+        # Read columns by name when present (any order), else by position (H4).
+        newdat <- .canon_cols(newdat, c("group", "events", "non_events"), "'newdat'")
+        if(!multi_arm)
+                histdat <- .canon_cols(histdat, c("events", "non_events"), "'histdat'")
 
         #-----------------------------------------------------------------------
         # Multi-arm borrowing: each named arm gets its own prior + posterior; the
         # remaining arms use the non-borrowing Beta(1 + ev, 1 + non-ev) posterior.
         if(multi_arm){
                 .check_multi_histdat(histdat, newdat[[1]])
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("events", "non_events"), what = "'histdat'")
                 return(.sci_binom_multiarm(histdat, newdat, prior_est, contr, type, base,
                                            robust, tau_prior, tau_dist, beta_prior,
-                                           limits, limits_pi, alpha, n_mcmc, seed))
+                                           limits, limits_pi, alpha, n_mcmc,
+                                           nonborrow_prior, seed))
         }
 
         # Effective gMAP hyperpriors actually used (filled in the MAP block; NA
@@ -273,28 +305,21 @@ SCI_binom <- function(histdat,
                 histdat_map <- cbind(data.frame(study=factor(1:nrow(histdat))),
                                      histdat)
 
-                # Default tau.prior (HalfNormal scale on the logit scale) depends
-                # on the mean proportion p_bar: 1 for a moderate p_bar in
-                # [0.2, 0.8], otherwise the n_infinity heuristic for extreme rates.
-                p_bar <- mean(histdat_map[,2] / (histdat_map[,2] + histdat_map[,3]))
-
-                if(0.2 <= p_bar & p_bar <= 0.8){
-                        tau_default <- 1
-                }
-                else{
-                        if(all(histdat_map[,2]==0)){
-                                y_vec <- histdat_map[,2]
-                                y_vec[1] <- 1
-                                n_vec <- histdat_map[,2] + histdat_map[,3]
-                                n_vec[1] <- n_vec[1] -1
-                                p_bar <- mean(y_vec / (n_vec))
-                        }
-                        tau_default <- round(1 / sqrt(p_bar * (1 - p_bar)), 1) / 2
-                }
+                # Default tau.prior: a fixed HalfNormal scale of 1 on the logit
+                # scale (RBesT's weakly-informative default). The former
+                # rate-dependent scale grew without bound as p_bar -> 0 and gave
+                # an absurdly diffuse MAP prior for sparse/all-zero historical
+                # data (issue H1); supply 'tau_prior' to override.
+                tau_default <- 1
 
                 # tau_prior / beta_prior override the defaults when supplied.
-                tau_p  <- if(is.null(tau_prior))  tau_default else tau_prior
-                beta_p <- if(is.null(beta_prior)) 2           else beta_prior
+                # Default intercept prior: Normal(logit(pooled rate), 2) on the
+                # logit scale, i.e. data-centred like the normal/Poisson families
+                # (issue M7). A continuity correction keeps the location finite
+                # for all-zero or all-success historical data.
+                p_pool <- (sum(histdat[,1]) + 0.5) / (sum(histdat[,1]) + sum(histdat[,2]) + 1)
+                tau_p  <- if(is.null(tau_prior))  tau_default                 else tau_prior
+                beta_p <- if(is.null(beta_prior)) cbind(stats::qlogis(p_pool), 2) else beta_prior
 
                 map_mcmc <- gMAP(cbind(histdat_map[,2], histdat_map[,3]) ~ 1 | study,
                                  data = histdat_map,
@@ -313,10 +338,18 @@ SCI_binom <- function(histdat,
 
         if(prior_est=="EB"){
 
-                # No hist. observations (set a and b to predefined values)
+                # No events (set a and b to predefined values)
                 if(all(histdat[,1]==0)){
                         a_est <- 1
                         b_est <- sum(histdat[,2])-1
+
+                        estimates_out <- NULL
+                }
+
+                # No non-events, i.e. a 100% rate: mirror the all-events-zero case
+                else if(all(histdat[,2]==0)){
+                        a_est <- sum(histdat[,1])-1
+                        b_est <- 1
 
                         estimates_out <- NULL
                 }
@@ -338,8 +371,10 @@ SCI_binom <- function(histdat,
                         a_est <- pi_HCD*a_b_HCD
                         b_est <- a_b_HCD-a_est
 
-                        # adjust a and b if data is not overdispersed
-                        if(a_est > sum(histdat[,1]) & b_est > sum(histdat[,1])){
+                        # adjust a and b if data is not overdispersed, i.e. the
+                        # fitted beta prior carries more information (a + b) than
+                        # the pooled historical data (events + non-events)
+                        if((a_est + b_est) > sum(histdat[,1]) + sum(histdat[,2])){
                                 a_est <- sum(histdat[,1])
                                 b_est <- sum(histdat[,2])
                         }
@@ -370,6 +405,7 @@ SCI_binom <- function(histdat,
         n0 <- newdat[1, 2] + newdat[1, 3]
 
         pred_dist <- RBesT::preddist(map, n = n0)
+        .warn_flat_binom_pred(pred_dist, n0, alpha)
 
         if(limits_pi == "two.sided"){
                 pred_int <- c(median = unname(RBesT::qmix(pred_dist, 0.5))       / n0,
@@ -425,10 +461,11 @@ SCI_binom <- function(histdat,
 
         #-----------------------------------------------------------------------
         # Posterior for the treatment groups
-        # Beta(1 + events, 1 + non-events) with a uniform Beta(1, 1) prior.
+        # Beta(a + events, b + non-events) with a Beta(a, b) prior; the default
+        # Beta(1, 1) is uniform (overridable via 'nonborrow_prior').
 
-        newdat$posta <- 1 + newdat[,2]
-        newdat$postb <- 1 + newdat[,3]
+        newdat$posta <- nonborrow_prior[1] + newdat[,2]
+        newdat$postb <- nonborrow_prior[2] + newdat[,3]
 
         simpost_trt <- apply(X      = newdat[-1, c("posta", "postb")],
                              MARGIN = 1,
@@ -441,6 +478,8 @@ SCI_binom <- function(histdat,
 
         simpost <- cbind(simpost_ccg,
                          simpost_trt)
+        # Name the columns by group, consistent with the multi-arm path.
+        colnames(simpost) <- as.character(newdat[[1]])
 
         #-----------------------------------------------------------------------
         # Output object for weights
@@ -463,47 +502,17 @@ SCI_binom <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("At least one parameter of the beta mixtures is less than 1.\n Estimation of ESS via elir-method does not work. ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map),
-                         sum(c(histdat[,1] + histdat[,2])))
+        eff_n_map <- .ess_safe(map, sum(c(histdat[,1] + histdat[,2])))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("At least one parameter of the beta mixtures is less than 1.\n Estimation of ESS via elir-method does not work. ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size),
-                               sum(c(histdat[,1] + histdat[,2])))
+        eff_sample_size <- .ess_safe(map_robust, sum(c(histdat[,1] + histdat[,2])))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the concurrent-control posterior
 
-        eff_n_post <- try(round(ess(posterior, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_post, "try-error")){
-
-                eff_n_post <- round(ess(posterior, method = "moment"))
-
-                warning("At least one parameter of the beta mixtures is less than 1.\n Estimation of ESS via elir-method does not work. ESS was estimated based on method of moments")
-        }
-
-        eff_n_post <- min(max(0, eff_n_post),
-                          sum(c(histdat[,1] + histdat[,2])))
+        eff_n_post <- .ess_safe(posterior, sum(c(histdat[,1] + histdat[,2])))
 
         #-----------------------------------------------------------------------
         # Shrinkage
@@ -559,10 +568,10 @@ SCI_binom <- function(histdat,
 
                 #---------------------------------------------------------------
 
-                simpost <- log(simpost/(1-simpost))
-
-                # Compute differences on the logit scale
-                diff2control <- BSagri::CCDiff.default(x=simpost, cmat=cmatr)
+                # Compute differences on the logit scale; transform locally so
+                # $simpost stays on the proportion scale (as in the RR / pi_diff
+                # and multi-arm paths).
+                diff2control <- BSagri::CCDiff.default(x=log(simpost/(1-simpost)), cmat=cmatr)
                 dpostdiff <- as.data.frame(diff2control$chains)
 
                 #---------------------------------------------------------------
@@ -643,6 +652,28 @@ SCI_binom <- function(histdat,
 
 
 #-------------------------------------------------------------------------------
+# Internal: guardrail warning when a MAP predictive is near-uninformative, i.e.
+# its two-sided (1 - alpha) predictive proportion interval spans almost all of
+# [0, 1]. Flags cases such as a too-wide tau.prior on sparse/all-zero historical
+# data (issue H1). Diagnostic only (always the two-sided span, regardless of the
+# analysis' one-sidedness); never let the guardrail itself error out.
+#-------------------------------------------------------------------------------
+.warn_flat_binom_pred <- function(pred_dist, n0, alpha, arm = NULL){
+        q <- tryCatch(RBesT::qmix(pred_dist, c(alpha / 2, 1 - alpha / 2)) / n0,
+                      error = function(e) NULL)
+        if(is.null(q) || any(!is.finite(q)) || (q[2] - q[1]) <= 0.9)
+                return(invisible())
+        where <- if(is.null(arm)) "" else sprintf(" (arm '%s')", arm)
+        warning(sprintf(paste0("MAP predictive interval%s spans almost all of ",
+                               "[0, 1] (%.3f to %.3f): the historical data are ",
+                               "weakly informative about the control proportion. ",
+                               "Consider a more informative 'tau_prior' or ",
+                               "checking the historical data."),
+                        where, q[1], q[2]), call. = FALSE)
+        invisible()
+}
+
+#-------------------------------------------------------------------------------
 # Internal: build the informative prior (RBesT beta mixture) for one arm from its
 # historical data (events, non-events), via MAP (gMAP) or EB (empirical Bayes).
 # Shared by SCI_binom() and PI_binom(). Returns list(map, tau_p, beta_p, estimates).
@@ -653,19 +684,15 @@ SCI_binom <- function(histdat,
 
         if(prior_est == "MAP"){
                 hd_map <- cbind(data.frame(study = factor(seq_len(nrow(hd)))), hd)
-                p_bar  <- mean(hd_map[, 2] / (hd_map[, 2] + hd_map[, 3]))
-                if(0.2 <= p_bar & p_bar <= 0.8){
-                        tau_default <- 1
-                } else {
-                        if(all(hd_map[, 2] == 0)){
-                                y_vec <- hd_map[, 2]; y_vec[1] <- 1
-                                n_vec <- hd_map[, 2] + hd_map[, 3]; n_vec[1] <- n_vec[1] - 1
-                                p_bar <- mean(y_vec / n_vec)
-                        }
-                        tau_default <- round(1 / sqrt(p_bar * (1 - p_bar)), 1) / 2
-                }
-                tau_p  <- if(is.null(tau_prior))  tau_default else tau_prior
-                beta_p <- if(is.null(beta_prior)) 2           else beta_prior
+                # Fixed HalfNormal scale of 1 on the logit scale; see the
+                # single-arm path for why the rate-dependent default was dropped
+                # (issue H1).
+                tau_default <- 1
+                # Data-centred default intercept prior Normal(logit(pooled rate), 2);
+                # see the single-arm path (issue M7).
+                p_pool <- (sum(hd[,1]) + 0.5) / (sum(hd[,1]) + sum(hd[,2]) + 1)
+                tau_p  <- if(is.null(tau_prior))  tau_default                 else tau_prior
+                beta_p <- if(is.null(beta_prior)) cbind(stats::qlogis(p_pool), 2) else beta_prior
 
                 map_mcmc <- gMAP(cbind(hd_map[, 2], hd_map[, 3]) ~ 1 | study,
                                  data = hd_map, tau.dist = tau_dist,
@@ -675,6 +702,9 @@ SCI_binom <- function(histdat,
                 # Empirical Bayes (Lui, 2000)
                 if(all(hd[, 1] == 0)){
                         a_est <- 1; b_est <- sum(hd[, 2]) - 1
+                } else if(all(hd[, 2] == 0)){
+                        # No non-events (100% rate): mirror the all-events-zero case
+                        a_est <- sum(hd[, 1]) - 1; b_est <- 1
                 } else {
                         est     <- predint::pi_rho_est(hd)
                         pi_HCD  <- unname(est[1])
@@ -684,7 +714,9 @@ SCI_binom <- function(histdat,
                         a_b_HCD <- (1 - rho_HCD) / rho_HCD
                         a_est   <- pi_HCD * a_b_HCD
                         b_est   <- a_b_HCD - a_est
-                        if(a_est > sum(hd[, 1]) & b_est > sum(hd[, 1])){
+                        # fall back to the pooled Beta when the data are not
+                        # overdispersed (fitted a + b exceeds events + non-events)
+                        if((a_est + b_est) > sum(hd[, 1]) + sum(hd[, 2])){
                                 a_est <- sum(hd[, 1]); b_est <- sum(hd[, 2])
                         }
                         estimates_out <- c("pi" = pi_HCD, "rho" = rho_HCD)
@@ -708,6 +740,7 @@ SCI_binom <- function(histdat,
 
         n0        <- ev_cur + nonev_cur
         pred_dist <- RBesT::preddist(map, n = n0)
+        .warn_flat_binom_pred(pred_dist, n0, alpha)
         pred_int  <- .pred_int_from(pred_dist, limits_pi, alpha, scale = n0)
 
         posterior <- postmix(map_robust, n = n0, r = ev_cur)
@@ -771,7 +804,8 @@ SCI_binom <- function(histdat,
 #-------------------------------------------------------------------------------
 .sci_binom_multiarm <- function(histdat, newdat, prior_est, contr, type, base,
                                 robust, tau_prior, tau_dist, beta_prior,
-                                limits, limits_pi, alpha, n_mcmc, seed){
+                                limits, limits_pi, alpha, n_mcmc,
+                                nonborrow_prior, seed){
 
         colnames(newdat)[1:3] <- c("group", "events", "non_events")
         arms        <- as.character(newdat$group)
@@ -789,8 +823,9 @@ SCI_binom <- function(histdat,
                         cols[[i]]   <- b$samples
                         borrow[[a]] <- b
                 } else {
-                        # Non-borrowing arm: Beta(1 + events, 1 + non-events).
-                        cols[[i]] <- rbeta(n_mcmc, 1 + newdat$events[i], 1 + newdat$non_events[i])
+                        # Non-borrowing arm: Beta(a + events, b + non-events).
+                        cols[[i]] <- rbeta(n_mcmc, nonborrow_prior[1] + newdat$events[i],
+                                           nonborrow_prior[2] + newdat$non_events[i])
                 }
         }
         simpost <- do.call(cbind, cols); colnames(simpost) <- arms

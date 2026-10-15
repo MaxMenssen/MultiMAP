@@ -17,8 +17,12 @@
 #'   containing different data frames: each element supplies the external
 #'    data for a particular study-arm. 
 #' @param newdat a data.frame containing the current trial; columns \code{group}, \code{events},
-#'   \code{offset}. In case for borrowing for the control group: Row 1 is the concurrent 
+#'   \code{offset}. In case for borrowing for the control group: Row 1 is the concurrent
 #'   control, the remaining rows are treatment groups.
+#' @details \code{histdat} and \code{newdat} columns are matched by name when all the
+#'   expected names are present, so they may be supplied in any order; otherwise the
+#'   first columns are read by position (with a message). Their values must be
+#'   finite, with \code{events} non-negative and \code{offset} positive.
 #' @param prior_est \code{"MAP"} (a meta-analytic-predictive prior via \code{RBesT::gMAP})
 #'  or \code{"EB"} (an empirical-Bayes gamma prior following Tarone 1982)
 #' @param type type of comparison: either \code{"Dunnett"} (many-to-one, each
@@ -31,7 +35,7 @@
 #'   rate: either \code{"two.sided"}, \code{"lower"} or \code{"upper"}. Defaults
 #'   to \code{limits} so that, unless set, the prediction interval follows the
 #'   contrasts' one- or two-sidedness.
-#' @param base index of the control group for the contrast matrix.
+#' @param base integer index of the control group for the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param tau_prior optional override for the \code{gMAP} between-study
 #'   heterogeneity prior (\code{tau.prior} in \code{RBesT::gMAP}), on the
@@ -61,6 +65,13 @@
 #' @param all_zero length-2 numeric giving the fallback gamma shape and rate
 #'   \code{c(a, b)} used for the empirical-Bayes prior when all historical counts
 #'   are zero (so the moment estimator is undefined).
+#' @param nonborrow_prior length-2 numeric \code{c(shape, rate)} giving the
+#'   weakly-informative gamma prior applied to the non-borrowing arms (the
+#'   treatment arms in single-arm borrowing, and any arm without its own
+#'   historical data set in multi-arm borrowing). The default
+#'   \code{c(0.5, 0.001)} is a Jeffreys-like prior whose shape 0.5 keeps a
+#'   zero-count arm's posterior off the rate 0; the posterior of a non-borrowing
+#'   arm is \code{Gamma(shape + events, rate + offset)}.
 #'
 #' @return A MultiMAP object: a named list with S3 class
 #'   \code{c("SCI", "MultiMAP_pois", "MultiMAP")} and the following slots:
@@ -109,6 +120,15 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+#'   \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+#'   \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+#'   become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+#'   \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+#'   are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+#'   Access these through \code{\link{get_output}}, \code{summary} or
+#'   \code{print} rather than by indexing the slots directly.
 #'
 #' @seealso \code{\link{SCI_norm}}, \code{\link{SCI_binom}}
 #'
@@ -189,7 +209,8 @@ SCI_pois <- function(histdat,
                      alpha = 0.05,
                      n_mcmc = 50000,
                      seed = NULL,
-                     all_zero = c(0.0001, 1)){
+                     all_zero = c(0.5, 0.5),
+                     nonborrow_prior = c(0.5, 0.001)){
 
         # Optional reproducibility: seeds gMAP()'s MCMC (MAP path) and the
         # Monte-Carlo sampling below.
@@ -229,21 +250,38 @@ SCI_pois <- function(histdat,
                 stop("'robust' must be a single number in [0, 1].")
         if(!is.numeric(alpha) || length(alpha) != 1 || alpha <= 0 || alpha >= 1)
                 stop("'alpha' must be a single number in (0, 1).")
-        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat))
-                stop("'base' must be a single group index in 1:nrow(newdat).")
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat) ||
+           base != round(base))
+                stop("'base' must be a single whole-number group index in 1:nrow(newdat).")
+        if(!is.numeric(nonborrow_prior) || length(nonborrow_prior) != 2 ||
+           any(!is.finite(nonborrow_prior)) || any(nonborrow_prior <= 0))
+                stop("'nonborrow_prior' must be two positive numbers c(shape, rate) for the non-borrowing Gamma prior.")
+
+        # Read columns by name when present (any order), else by position (H4).
+        newdat <- .canon_cols(newdat, c("group", "events", "offset"), "'newdat'")
+        if(!multi_arm)
+                histdat <- .canon_cols(histdat, c("events", "offset"), "'histdat'")
 
         #-----------------------------------------------------------------------
         # Multi-arm borrowing: each named arm gets its own prior + posterior; the
         # remaining arms use the non-borrowing near-flat Gamma(eps, eps) posterior.
         if(multi_arm){
                 .check_multi_histdat(histdat, newdat[[1]])
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("events", "offset"), what = "'histdat'")
                 return(.sci_pois_multiarm(histdat, newdat, prior_est, contr, type, base,
                                           robust, tau_prior, tau_dist, beta_prior,
-                                          limits, limits_pi, alpha, n_mcmc, all_zero, seed))
+                                          limits, limits_pi, alpha, n_mcmc, all_zero,
+                                          nonborrow_prior, seed))
         }
 
-        # Near-flat gamma prior for the (non-borrowing) treatment arms.
-        eps <- 0.001
+        # Weakly-informative Jeffreys-like Gamma(a0, eps) prior for the
+        # (non-borrowing) treatment arms (overridable via 'nonborrow_prior').
+        # Shape a0 = 0.5 keeps a zero-count arm's posterior off 0; a near-flat
+        # shape (e.g. 0.001) collapses it to rate 0 and yields spurious
+        # significant rate ratios.
+        a0  <- nonborrow_prior[1]
+        eps <- nonborrow_prior[2]
 
         # Effective gMAP hyperpriors actually used (filled in the MAP block; NA
         # for the EB path). Stored in the output.
@@ -413,11 +451,11 @@ SCI_pois <- function(histdat,
         simpost_ccg <- RBesT::rmix(posterior, n_mcmc)
 
         #-----------------------------------------------------------------------
-        # Treatment posteriors: near-flat Gamma(eps, eps) prior updated with the
-        # arm's count and exposure -> Gamma(eps + events, eps + offset); no
+        # Treatment posteriors: weakly-informative Gamma(a0, eps) prior updated with
+        # the arm's count and exposure -> Gamma(a0 + events, eps + offset); no
         # historical information is borrowed for the treatment arms.
 
-        newdat$posta <- eps + newdat[, 2]
+        newdat$posta <- a0  + newdat[, 2]
         newdat$postb <- eps + newdat[, 3]
 
         simpost_trt <- apply(X      = newdat[-1, c("posta", "postb")],
@@ -453,44 +491,17 @@ SCI_pois <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map), sum(histdat[, 2]))
+        eff_n_map <- .ess_safe(map, sum(histdat[, 2]))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size), sum(histdat[, 2]))
+        eff_sample_size <- .ess_safe(map_robust, sum(histdat[, 2]))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the concurrent-control posterior
 
-        eff_n_post <- try(round(ess(posterior, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_post, "try-error")){
-
-                eff_n_post <- round(ess(posterior, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_post <- min(max(0, eff_n_post), sum(histdat[, 2]))
+        eff_n_post <- .ess_safe(posterior, sum(histdat[, 2]))
 
         #-----------------------------------------------------------------------
         # Shrinkage
@@ -711,15 +722,19 @@ SCI_pois <- function(histdat,
 #-------------------------------------------------------------------------------
 .sci_pois_multiarm <- function(histdat, newdat, prior_est, contr, type, base,
                                robust, tau_prior, tau_dist, beta_prior,
-                               limits, limits_pi, alpha, n_mcmc, all_zero, seed){
+                               limits, limits_pi, alpha, n_mcmc, all_zero,
+                               nonborrow_prior, seed){
 
         colnames(newdat)[1:3] <- c("group", "events", "offset")
         arms        <- as.character(newdat$group)
         borrow_arms <- names(histdat)
         alt_scs     <- switch(limits, "lower" = "greater", "upper" = "less", "two.sided")
 
-        # Near-flat gamma prior for the non-borrowing arms.
-        eps <- 0.001
+        # Weakly-informative Jeffreys-like Gamma(a0, eps) prior for the
+        # non-borrowing arms (shape a0 = 0.5 keeps zero-count posteriors off 0;
+        # overridable via 'nonborrow_prior').
+        a0  <- nonborrow_prior[1]
+        eps <- nonborrow_prior[2]
 
         cols   <- vector("list", length(arms))
         borrow <- vector("list", 0)
@@ -732,8 +747,8 @@ SCI_pois <- function(histdat,
                         cols[[i]]   <- b$samples
                         borrow[[a]] <- b
                 } else {
-                        # Non-borrowing arm: Gamma(eps + events, eps + offset).
-                        cols[[i]] <- rgamma(n_mcmc, shape = eps + newdat$events[i],
+                        # Non-borrowing arm: Gamma(a0 + events, eps + offset).
+                        cols[[i]] <- rgamma(n_mcmc, shape = a0 + newdat$events[i],
                                             rate = eps + newdat$offset[i])
                 }
         }

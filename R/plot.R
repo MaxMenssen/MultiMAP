@@ -139,8 +139,10 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                 if(identical(x$distr, "poisson")){
 
                         # Control exposure the predictive was built for (used to
-                        # move from event counts to the rate scale).
-                        exposure <- if(inherits(x, "SCI")) x$newdat[1, 3] else 1
+                        # move from event counts to the rate scale): newdat offset
+                        # for SCI objects, the stored offset0 for PI objects.
+                        exposure <- if(inherits(x, "SCI")) x$newdat[1, 3]
+                                    else if(!is.null(x$offset0)) x$offset0 else 1
 
                         # Count support up to a high predictive quantile
                         rr <- 0:ceiling(unname(RBesT::qmix(mix, 0.9999)))
@@ -437,7 +439,8 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
                                 df <- data.frame(x = rr / n0, y = RBesT::dmix(mix, rr),
                                                  width = 0.9 / n0)
                         } else if(identical(x$distr, "poisson")){
-                                exposure <- if(from_SCI) x$newdat[idx, 3] else 1
+                                exposure <- if(from_SCI) x$newdat[idx, 3]
+                                            else if(!is.null(x$offset0)) x$offset0[[a]] else 1
                                 rr <- 0:ceiling(unname(RBesT::qmix(mix, 0.9999)))
                                 df <- data.frame(x = rr / exposure, y = RBesT::dmix(mix, rr),
                                                  width = 0.9 / exposure)

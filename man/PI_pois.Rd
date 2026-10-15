@@ -16,7 +16,7 @@ PI_pois(
   alpha = 0.05,
   n_mcmc = 50000,
   seed = NULL,
-  all_zero = c(1e-04, 1)
+  all_zero = c(0.5, 0.5)
 )
 }
 \arguments{
@@ -103,6 +103,9 @@ A MultiMAP object: a named list with S3 class
       built with \code{\link[RBesT]{preddist}}.}
     \item{\code{pred_int}}{the prediction interval for the concurrent control
       rate (named \code{median}, \code{lower}, \code{upper}).}
+    \item{\code{offset0}}{the exposure the predictive was built for (a single
+      value, or one per arm for a multi-arm object); used by
+      \code{\link{plot.MultiMAP}} to draw the predictive on the rate scale.}
     \item{\code{shrinkage}}{\code{NA} (only \code{\link{SCI_pois}} fills this).}
     \item{\code{simpost}}{\code{NA} (only \code{\link{SCI_pois}} fills this).}
     \item{\code{tau_prior}}{a list with the gMAP between-study heterogeneity
@@ -113,6 +116,13 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+  \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+  \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+  \code{eff_n_map}, \code{eff_n} and \code{offset0} become named vectors.
+  Access these through \code{\link{get_output}}, \code{summary} or
+  \code{print} rather than by indexing the slots directly.
   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
   \code{\link{REPORT_pois}} on it.
 }
@@ -122,6 +132,12 @@ Builds robustified priors for the study arms of interest -- either meta-analytic
 or empirical-Bayes gamma priors estimated from the historical data
 (\code{prior_est = "EB"}) -- and derives the
 prediction intervals for the rates in the study arms of interest.
+}
+\details{
+\code{histdat} columns are matched by name when all the expected names
+  are present, so they may be supplied in any order; otherwise the first columns
+  are read by position (with a message). Their values must be finite, with
+  \code{events} non-negative and \code{offset} positive.
 }
 \examples{
 \donttest{

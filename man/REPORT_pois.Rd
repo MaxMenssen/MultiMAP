@@ -80,7 +80,9 @@ newdat  <- data.frame(group  = c("control", "d1", "d454"),
                       offset = c(3, 3, 3))
 res <- SCI_pois(histdat, newdat, prior_est = "MAP",
                 contr = "rate_diff", seed = 1)
-REPORT_pois(res)   # writes into tempdir()
+out <- tempfile(fileext = ".qmd")   # a unique file, removed below
+REPORT_pois(res, file = out)
+file.remove(out)
 }
 }
 \seealso{

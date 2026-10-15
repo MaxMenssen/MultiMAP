@@ -27,7 +27,8 @@ SIM_binom(
   n_mcmc = 50000,
   parallel = TRUE,
   n_cores = NULL,
-  seed = NULL
+  seed = NULL,
+  nonborrow_prior = c(1, 1)
 )
 }
 \arguments{
@@ -83,7 +84,7 @@ pairwise contrast labels.}
 \item{limits}{\code{"two.sided"} (default), \code{"lower"} or
 \code{"upper"} (drives the reject decision; passed to \code{\link{SCI_binom}}).}
 
-\item{base}{index of the control group in the contrast matrix.}
+\item{base}{integer index of the control group in the contrast matrix.}
 
 \item{robust}{weight of the weakly-informative (robust) prior component.}
 
@@ -107,6 +108,11 @@ path only). \code{NULL} (the default) uses the built-in heuristics.}
 stream is assigned per replicate, so the study is reproducible AND identical
 whether run serially or in parallel and regardless of the number of workers.
 \code{NULL} gives a non-reproducible run.}
+
+\item{nonborrow_prior}{length-2 numeric \code{c(a, b)} for the non-borrowing
+Beta prior, passed to \code{\link{SCI_binom}} (default \code{c(1, 1)}, the
+uniform prior); lets a simulation study vary the prior on the arms that do
+not borrow.}
 }
 \value{
 A one-row data frame of operating characteristics, including:

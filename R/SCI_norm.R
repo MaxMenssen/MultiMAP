@@ -16,8 +16,12 @@
 #' pass a \emph{named list} containing different data frames: each element supplies 
 #' the external data for a particular study-arm. 
 #' @param newdat a data.frame containing the current trial; columns \code{group}, \code{mean}, \code{sd},
-#'   \code{n}. In case for borrowing for the control group: Row 1 is the concurrent 
+#'   \code{n}. In case for borrowing for the control group: Row 1 is the concurrent
 #'   control, the remaining rows are treatment groups.
+#' @details \code{histdat} and \code{newdat} columns are matched by name when all the
+#'   expected names are present, so they may be supplied in any order; otherwise the
+#'   first columns are read by position (with a message). Their values must be
+#'   finite, with \code{sd} and \code{n} positive.
 #' @param prior_est currently, only \code{"MAP"} is supported: a
 #'   meta-analytic-predictive prior via \code{RBesT::gMAP} (\code{family =
 #'   gaussian}), fitted to a normal mixture.
@@ -32,7 +36,7 @@
 #'   mean: either \code{"two.sided"}, \code{"lower"} or \code{"upper"}. Default is
 #'   set to \code{limits} so, unless set, the prediction interval follows the
 #'   contrasts' one- or two-sidedness.
-#' @param base index of the control group for the contrast matrix.
+#' @param base integer index of the control group for the contrast matrix.
 #' @param robust weight of the weakly-informative (robust) prior component.
 #' @param sigma reference scale for the RBesT Gaussian machinery. If \code{NULL},
 #'   \code{sigma} is estimated from the data as an n-weighted pooled sd of the
@@ -58,6 +62,12 @@
 #' @param seed optional integer; if supplied, \code{set.seed(seed)} is called so
 #'   the \code{gMAP} MCMC and the Monte-Carlo sampling are reproducible.
 #'   \code{NULL} (default) leaves the RNG state untouched.
+#' @param nonborrow_prior prior on the mean of the non-borrowing arms (the
+#'   treatment arms in single-arm borrowing, and any arm without its own
+#'   historical data set in multi-arm borrowing). \code{NULL} (default) uses an
+#'   improper flat prior, so the posterior is \code{N(ybar, sd / sqrt(n))}. A
+#'   length-2 numeric \code{c(mean, sd)} specifies a proper normal prior that is
+#'   conjugate-updated with the arm likelihood instead.
 #'
 #' @return A MultiMAP object: a named list with S3 class
 #'   \code{c("SCI", "MultiMAP_norm", "MultiMAP")} and the following slots:
@@ -105,6 +115,15 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+#'   \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+#'   \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+#'   become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+#'   \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+#'   are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+#'   Access these through \code{\link{get_output}}, \code{summary} or
+#'   \code{print} rather than by indexing the slots directly.
 #'   Use \code{\link{plot.MultiMAP}}, \code{\link{print.MultiMAP}},
 #'   \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
 #'   \code{\link{REPORT_norm}} on it.
@@ -177,7 +196,8 @@ SCI_norm <- function(histdat,
                           beta_prior = NULL,
                           alpha = 0.05,
                           n_mcmc = 50000,
-                          seed = NULL){
+                          seed = NULL,
+                          nonborrow_prior = NULL){
 
         # Optional reproducibility: seeds gMAP()'s MCMC and the Monte-Carlo
         # sampling below.
@@ -215,14 +235,20 @@ SCI_norm <- function(histdat,
                 stop("'robust' must be a single number in [0, 1].")
         if(!is.numeric(alpha) || length(alpha) != 1 || alpha <= 0 || alpha >= 1)
                 stop("'alpha' must be a single number in (0, 1).")
-        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat))
-                stop("'base' must be a single group index in 1:nrow(newdat).")
+        if(!is.numeric(base) || length(base) != 1 || base < 1 || base > nrow(newdat) ||
+           base != round(base))
+                stop("'base' must be a single whole-number group index in 1:nrow(newdat).")
+        if(!is.null(nonborrow_prior) &&
+           (!is.numeric(nonborrow_prior) || length(nonborrow_prior) != 2 ||
+            any(!is.finite(nonborrow_prior)) || nonborrow_prior[2] <= 0))
+                stop("'nonborrow_prior' must be NULL (improper flat prior) or two numbers c(mean, sd) with sd > 0 for a proper normal prior on the non-borrowing means.")
 
         #-----------------------------------------------------------------------
         # Column bookkeeping (mean, sd, n)
 
-        colnames(newdat)[1:4]  <- c("group", "mean", "sd", "n")
-        if(!multi_arm) colnames(histdat)[1:3] <- c("mean", "sd", "n")
+        newdat <- .canon_cols(newdat, c("group", "mean", "sd", "n"), "'newdat'")
+        if(!multi_arm)
+                histdat <- .canon_cols(histdat, c("mean", "sd", "n"), "'histdat'")
 
         # Only the MAP prior is supported (the pooled approach has been removed).
         if(prior_est != "MAP"){
@@ -235,9 +261,12 @@ SCI_norm <- function(histdat,
         # in a dedicated path so the single-arm code below is unchanged.
         if(multi_arm){
                 .check_multi_histdat(histdat, newdat$group)
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("mean", "sd", "n"), what = "'histdat'")
                 return(.sci_norm_multiarm(histdat, newdat, contr, type, base,
                                           robust, sigma, tau_prior, tau_dist, beta_prior,
-                                          limits, limits_pi, alpha, n_mcmc, seed))
+                                          limits, limits_pi, alpha, n_mcmc,
+                                          nonborrow_prior, seed))
         }
 
         #-----------------------------------------------------------------------
@@ -400,10 +429,13 @@ SCI_norm <- function(histdat,
         #-----------------------------------------------------------------------
         # Posterior for the treatment groups
         # with improper prior on the mean (all means are equally likely)):
-        # mean_g ~ N(ybar_g, sd_g / sqrt(n_g))
+        # mean_g ~ N(ybar_g, sd_g / sqrt(n_g)). A proper normal prior supplied
+        # via 'nonborrow_prior' is conjugate-updated instead.
 
-        newdat$post_m <- newdat$mean
-        newdat$post_s <- newdat$sd / sqrt(newdat$n)
+        nb_post       <- .norm_nonborrow_post(newdat$mean, newdat$sd / sqrt(newdat$n),
+                                              nonborrow_prior)
+        newdat$post_m <- nb_post$m
+        newdat$post_s <- nb_post$s
 
         simpost_trt <- apply(X      = newdat[-1, c("post_m", "post_s")],
                              MARGIN = 1,
@@ -437,47 +469,17 @@ SCI_norm <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) MAP prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map),
-                         sum(histdat$n))
+        eff_n_map <- .ess_safe(map, sum(histdat$n))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified MAP prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size),
-                               sum(histdat$n))
+        eff_sample_size <- .ess_safe(map_robust, sum(histdat$n))
 
         #-----------------------------------------------------------------------
         # Effective posterior sample size
 
-        eff_n_post <- try(round(ess(posterior, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_post, "try-error")){
-
-                eff_n_post <- round(ess(posterior, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_post <- min(max(0, eff_n_post),
-                          sum(histdat$n))
+        eff_n_post <- .ess_safe(posterior, sum(histdat$n))
 
         #-----------------------------------------------------------------------
         # Shrinkage
@@ -678,13 +680,30 @@ SCI_norm <- function(histdat,
 }
 
 #-------------------------------------------------------------------------------
+# Internal: posterior mean/sd of a non-borrowing normal arm. With
+# nonborrow_prior = NULL the prior on the mean is improper flat, giving the
+# usual N(ybar, se) sampling posterior. A proper normal prior N(m0, s0)
+# (nonborrow_prior = c(m0, s0)) is conjugate-updated with the arm likelihood
+# N(ybar, se^2). Vectorised over ybar/se (m0, s0 are scalars).
+#-------------------------------------------------------------------------------
+.norm_nonborrow_post <- function(ybar, se, nonborrow_prior){
+        if(is.null(nonborrow_prior))
+                return(list(m = ybar, s = se))
+        m0   <- nonborrow_prior[1]
+        s0   <- nonborrow_prior[2]
+        prec <- 1 / s0^2 + 1 / se^2
+        list(m = (m0 / s0^2 + ybar / se^2) / prec, s = sqrt(1 / prec))
+}
+
+#-------------------------------------------------------------------------------
 # Internal: multi-arm SCI_norm(). Each arm named in 'histdat' is borrowed (its
 # own MAP prior + posterior); every other arm uses the non-borrowing flat-prior
 # posterior. Contrasts and SCIs are formed exactly as in the single-arm path.
 #-------------------------------------------------------------------------------
 .sci_norm_multiarm <- function(histdat, newdat, contr, type, base,
                                robust, sigma, tau_prior, tau_dist, beta_prior,
-                               limits, limits_pi, alpha, n_mcmc, seed){
+                               limits, limits_pi, alpha, n_mcmc,
+                               nonborrow_prior, seed){
 
         arms        <- as.character(newdat$group)
         borrow_arms <- names(histdat)
@@ -705,9 +724,12 @@ SCI_norm <- function(histdat,
                         borrow[[a]] <- b
                 } else {
                         # Non-borrowing arm: improper prior on the mean ->
-                        # mean ~ N(ybar, sd / sqrt(n)).
-                        cols[[i]] <- rnorm(n_mcmc, mean = newdat$mean[i],
-                                           sd = newdat$sd[i] / sqrt(newdat$n[i]))
+                        # mean ~ N(ybar, sd / sqrt(n)); a proper normal prior
+                        # ('nonborrow_prior') is conjugate-updated instead.
+                        nb <- .norm_nonborrow_post(newdat$mean[i],
+                                                   newdat$sd[i] / sqrt(newdat$n[i]),
+                                                   nonborrow_prior)
+                        cols[[i]] <- rnorm(n_mcmc, mean = nb$m, sd = nb$s)
                 }
         }
         simpost <- do.call(cbind, cols)

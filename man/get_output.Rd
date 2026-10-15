@@ -12,7 +12,7 @@ get_output(
 }
 \arguments{
 \item{x}{a MultiMAP object (from \code{\link{SCI_norm}}, \code{\link{PI_norm}},
-\code{\link{SCI_binom}}, \code{\link{PI_binom}} or \code{\link{SCI_pois}}).}
+\code{\link{SCI_binom}}, \code{\link{PI_binom}} \code{\link{PI_pois}} or \code{\link{SCI_pois}}).}
 
 \item{which}{which component to extract:
 \describe{
@@ -38,7 +38,8 @@ The requested component.
 \description{
 Single entry point that returns a chosen component of a MultiMAP object -- the
 output of \code{\link{SCI_norm}}, \code{\link{PI_norm}}, \code{\link{SCI_binom}},
-\code{\link{PI_binom}} or \code{\link{SCI_pois}} -- selected via \code{which}.
+\code{\link{PI_binom}}, \code{\link{PI_pois}} or \code{\link{SCI_pois}} 
+-- selected via \code{which}.
 Not every component is populated by every constructor: the \code{PI_*}
 functions leave the contrast-related components (\code{"SCI"},
 \code{"contr_mat"}, \code{"post"}) as \code{NA}.

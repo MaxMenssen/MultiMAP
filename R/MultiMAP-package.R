@@ -144,11 +144,22 @@ globalVariables(c(
 # Internal helpers shared by the (multi-arm) borrowing pipeline
 #-------------------------------------------------------------------------------
 
-# Effective sample size of an RBesT mixture, robust to elir failures and capped
-# at the total historical information 'cap'.
+# Effective sample size of an RBesT mixture, capped at the total historical
+# information 'cap'. Tries the elir estimator, then the method of moments, each
+# guarded (issue H2): a numerically unstable MAP fit -- e.g. a degenerate
+# mixture from a very diffuse 'tau_prior' or sparse historical data -- makes
+# both estimators fail inside ess()/uniroot with the cryptic "missing value
+# where TRUE/FALSE needed". When both fail, return NA with an informative
+# warning instead of aborting the whole analysis.
 .ess_safe <- function(mix, cap){
-        e <- try(round(ess(mix, method = "elir")), silent = TRUE)
-        if(inherits(e, "try-error")) e <- round(ess(mix, method = "moment"))
+        e <- suppressWarnings(try(round(ess(mix, method = "elir")), silent = TRUE))
+        if(inherits(e, "try-error") || !is.finite(e))
+                e <- suppressWarnings(try(round(ess(mix, method = "moment")), silent = TRUE))
+        if(inherits(e, "try-error") || !is.finite(e)){
+                warning("Effective sample size could not be computed: the MAP fit is numerically unstable, most likely a degenerate mixture from a very diffuse 'tau_prior' or sparse historical data. Returning NA for the effective sample size; consider a less diffuse 'tau_prior' or checking the historical data.",
+                        call. = FALSE)
+                return(NA_real_)
+        }
         min(max(0, e), cap)
 }
 
@@ -175,6 +186,51 @@ globalVariables(c(
 # TRUE when histdat requests multi-arm borrowing (a named list of per-arm
 # historical data sets) rather than the single (control-only) data frame.
 .is_multi_arm <- function(histdat) is.list(histdat) && !is.data.frame(histdat)
+
+# Reorder a histdat / newdat data frame to the canonical 'expected' column
+# order (issue H4). When all of the expected names are present the columns are
+# selected by name, so a user may supply the named columns in any order;
+# otherwise the first length(expected) columns are read by position and given
+# the canonical names, with a one-time message. Columns that already carry the
+# expected names are never renamed by position. Coerce to a base data frame so
+# tibble inputs (where x[, j] stays a 1-column tibble, not a vector) work in the
+# single-arm paths too (issue M5).
+.canon_cols <- function(df, expected, what = "data frame"){
+        df <- as.data.frame(df)
+        if(all(expected %in% names(df))){
+                out <- df[, expected, drop = FALSE]
+        } else {
+                message(what, ": not all expected columns (", paste(expected, collapse = ", "),
+                        ") were found by name; reading the first ", length(expected),
+                        " column(s) by position as (", paste(expected, collapse = ", "), ").")
+                out <- df[, seq_along(expected), drop = FALSE]
+                names(out) <- expected
+        }
+        .check_data_cols(out, what)
+        out
+}
+
+# Validate the values of a canonicalised histdat / newdat data frame (issue M6).
+# Driven by the canonical column names: 'events'/'non_events' are finite,
+# non-negative counts (whole numbers for the binomial endpoint, identified by a
+# 'non_events' column); 'offset', 'sd' and 'n' are finite and positive; 'mean'
+# is finite. Stops with an explicit message naming the data set and column.
+.check_data_cols <- function(df, what){
+        nm  <- names(df)
+        err <- function(col, msg) stop(what, ": column '", col, "' ", msg, ".", call. = FALSE)
+        fin <- function(col) if(any(!is.finite(df[[col]]))) err(col, "has missing or non-finite values")
+        is_binom <- "non_events" %in% nm
+        for(col in intersect(c("events", "non_events"), nm)){
+                fin(col)
+                if(any(df[[col]] < 0))                                 err(col, "must be non-negative")
+                if(is_binom && any(df[[col]] != round(df[[col]])))     err(col, "must be whole numbers (counts)")
+        }
+        if("offset" %in% nm){ fin("offset"); if(any(df[["offset"]] <= 0)) err("offset", "must be positive") }
+        if("mean"   %in% nm)  fin("mean")
+        if("sd"     %in% nm){ fin("sd"); if(any(df[["sd"]] <= 0)) err("sd", "must be positive") }
+        if("n"      %in% nm){ fin("n");  if(any(df[["n"]]  <= 0)) err("n",  "must be positive") }
+        invisible(df)
+}
 
 # Validate a multi-arm 'histdat' (named list) against the current-trial groups.
 .check_multi_histdat <- function(histdat, groups){

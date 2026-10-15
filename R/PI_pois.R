@@ -13,6 +13,10 @@
 #'   To borrow for more than one arm, pass a \emph{named list}
 #'   containing different data frames: each element supplies the external
 #'    data for a particular study-arm. 
+#' @details \code{histdat} columns are matched by name when all the expected names
+#'   are present, so they may be supplied in any order; otherwise the first columns
+#'   are read by position (with a message). Their values must be finite, with
+#'   \code{events} non-negative and \code{offset} positive.
 #' @param offset0 exposure (number of experimental units) in the study arms of interest
 #'   for which the prediction intervals are derived. 
 #'   Either a single value (used for every arm) or a named vector with one value per arm.
@@ -77,6 +81,9 @@
 #'       built with \code{\link[RBesT]{preddist}}.}
 #'     \item{\code{pred_int}}{the prediction interval for the concurrent control
 #'       rate (named \code{median}, \code{lower}, \code{upper}).}
+#'     \item{\code{offset0}}{the exposure the predictive was built for (a single
+#'       value, or one per arm for a multi-arm object); used by
+#'       \code{\link{plot.MultiMAP}} to draw the predictive on the rate scale.}
 #'     \item{\code{shrinkage}}{\code{NA} (only \code{\link{SCI_pois}} fills this).}
 #'     \item{\code{simpost}}{\code{NA} (only \code{\link{SCI_pois}} fills this).}
 #'     \item{\code{tau_prior}}{a list with the gMAP between-study heterogeneity
@@ -87,6 +94,13 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+#'   \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+#'   \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+#'   \code{eff_n_map}, \code{eff_n} and \code{offset0} become named vectors.
+#'   Access these through \code{\link{get_output}}, \code{summary} or
+#'   \code{print} rather than by indexing the slots directly.
 #'   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
 #'   \code{\link{REPORT_pois}} on it.
 #'
@@ -151,7 +165,7 @@ PI_pois <- function(histdat,
                     alpha = 0.05,
                     n_mcmc = 50000,
                     seed = NULL,
-                    all_zero = c(0.0001, 1)){
+                    all_zero = c(0.5, 0.5)){
 
         # Optional reproducibility: seeds gMAP()'s MCMC (MAP path).
         if(!is.null(seed)) set.seed(seed)
@@ -190,10 +204,15 @@ PI_pois <- function(histdat,
                    anyDuplicated(names(histdat)) ||
                    !all(vapply(histdat, is.data.frame, logical(1))))
                         stop("For multi-arm borrowing, 'histdat' must be a named list of data frames.")
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("events", "offset"), what = "'histdat'")
                 return(.pi_pois_multiarm(histdat, offset0, prior_est, robust,
                                          tau_prior, tau_dist, beta_prior, limits, alpha, n_mcmc,
                                          all_zero, seed))
         }
+
+        # Read columns by name when present (any order), else by position (H4).
+        histdat <- .canon_cols(histdat, c("events", "offset"), "'histdat'")
 
         # Effective gMAP hyperpriors actually used (filled in the MAP block; NA
         # for the EB path). Stored in the output.
@@ -310,30 +329,12 @@ PI_pois <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map), sum(histdat[, 2]))
+        eff_n_map <- .ess_safe(map, sum(histdat[, 2]))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size), sum(histdat[, 2]))
+        eff_sample_size <- .ess_safe(map_robust, sum(histdat[, 2]))
 
         #-----------------------------------------------------------------------
         weights <- data.frame(w_prior = c(1 - robust, robust),
@@ -359,6 +360,7 @@ PI_pois <- function(histdat,
                          "posterior"  = NA,
                          "pred_dist"  = pred_dist,
                          "pred_int"   = pred_int,
+                         "offset0"    = offset0,
                          "shrinkage"  = NA,
                          "simpost"    = NA,
                          "tau_prior"  = .tau_prior_out(tau_dist, tau_p),
@@ -433,6 +435,7 @@ PI_pois <- function(histdat,
                          "posterior"   = NA,
                          "pred_dist"   = pick("pred_dist"),
                          "pred_int"    = pick("pred_int"),
+                         "offset0"     = offv,
                          "shrinkage"   = NA, "simpost" = NA,
                          "tau_prior"   = pick("tau_prior"),
                          "beta_prior"  = pick("beta_prior"),

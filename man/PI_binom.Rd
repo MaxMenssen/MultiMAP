@@ -46,23 +46,22 @@ to robustify the prior.}
 
 \item{tau_prior}{optional override for the \code{gMAP} between-study
 heterogeneity prior (\code{tau.prior} in \code{RBesT::gMAP}), on the logit
-scale. \code{NULL} (the default) uses the built-in heuristic (a
-\code{HalfNormal} scale of 1 for a mean proportion in [0.2, 0.8], otherwise
-\code{round(1 / sqrt(p_bar (1 - p_bar)), 1) / 2}); a larger scalar scale
-widens the MAP prior and its prediction interval when few historical studies
-leave tau weakly identified.}
+scale. \code{NULL} (the default) uses a \code{HalfNormal} scale of 1; a
+larger scalar scale widens the MAP prior and its prediction interval when
+few historical studies leave tau weakly identified.}
 
 \item{tau_dist}{distribution family of the \code{gMAP} between-study
 heterogeneity prior (\code{tau.dist} in \code{RBesT::gMAP}); one of
 \code{"HalfNormal"} (the default), \code{"TruncNormal"}, \code{"Uniform"},
 \code{"Gamma"}, \code{"InvGamma"}, \code{"LogNormal"}, \code{"TruncCauchy"},
 \code{"Exp"} or \code{"Fixed"}. The built-in default \code{tau_prior}
-heuristic is calibrated for the half-normal, so when \code{tau_dist} is set
+is calibrated for the half-normal, so when \code{tau_dist} is set
 to any other family a matching \code{tau_prior} must also be supplied.}
 
 \item{beta_prior}{optional override for the \code{gMAP} intercept prior
 (\code{beta.prior} in \code{RBesT::gMAP}), on the logit scale. \code{NULL}
-(the default) uses a scale of 2.}
+(the default) uses a \code{Normal(logit(pooled rate), 2)} centred on the
+pooled historical rate.}
 
 \item{alpha}{1 - coverage level of the prediction interval.}
 
@@ -109,6 +108,13 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+  \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+  \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+  \code{eff_n_map} and \code{eff_n} become named vectors. Access these through
+  \code{\link{get_output}}, \code{summary} or \code{print} rather than by
+  indexing the slots directly.
   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
   \code{\link{REPORT_binom}} on it.
 }
@@ -118,6 +124,12 @@ Builds robustified priors for the study arms of interest -- either a meta-analyt
 or an empirical-Bayes beta prior estimated from the historical data
 (\code{prior_est = "EB"}) -- and derives the prediction intervals for the
 binomial proportions in the study arms of interest.
+}
+\details{
+\code{histdat} columns are matched by name when all the expected names
+  are present, so they may be supplied in any order; otherwise the first columns
+  are read by position (with a message). Their values must be finite, with
+  \code{events} and \code{non_events} non-negative whole numbers.
 }
 \examples{
 \donttest{

@@ -8,6 +8,10 @@
 #' columns \code{mean}, \code{sd}, \code{n}. To borrow for more than one arm, 
 #' pass a \emph{named list} containing different data frames: each element supplies 
 #' the external data for a particular study-arm. 
+#' @details \code{histdat} columns are matched by name when all the expected names
+#'   are present, so they may be supplied in any order; otherwise the first columns
+#'   are read by position (with a message). Their values must be finite, with
+#'   \code{sd} and \code{n} positive.
 #' @param n0 planned sample size of the (future) concurrent control group
 #'   (\eqn{m = 0}) for which the prediction interval is derived. For a named-list
 #'   \code{histdat}, either a single value (used for every arm) or a named vector
@@ -80,6 +84,13 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+#'   \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+#'   \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+#'   \code{eff_n_map} and \code{eff_n} become named vectors. Access these through
+#'   \code{\link{get_output}}, \code{summary} or \code{print} rather than by
+#'   indexing the slots directly.
 #'   Use \code{\link{plot.MultiMAP}}, \code{\link{summary.MultiMAP}},
 #'   \code{\link{get_output}} and \code{\link{REPORT_norm}} on it.
 #'
@@ -171,6 +182,8 @@ PI_norm <- function(histdat,
                    anyDuplicated(names(histdat)) ||
                    !all(vapply(histdat, is.data.frame, logical(1))))
                         stop("For multi-arm borrowing, 'histdat' must be a named list of data frames.")
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("mean", "sd", "n"), what = "'histdat'")
                 return(.pi_norm_multiarm(histdat, n0, robust, sigma,
                                          tau_prior, tau_dist, beta_prior, limits, alpha, seed))
         }
@@ -178,7 +191,7 @@ PI_norm <- function(histdat,
         #-----------------------------------------------------------------------
         # Column bookkeeping (mean, sd, n)
 
-        colnames(histdat)[1:3] <- c("mean", "sd", "n")
+        histdat <- .canon_cols(histdat, c("mean", "sd", "n"), "'histdat'")
         
         #-----------------------------------------------------------------------
         # Reference scale (sigma) for the RBesT Gaussian machinery
@@ -304,32 +317,12 @@ PI_norm <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) MAP prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map),
-                         sum(histdat$n))
+        eff_n_map <- .ess_safe(map, sum(histdat$n))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified MAP prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("Estimation of ESS via elir-method does not work.\n ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size),
-                               sum(histdat$n))
+        eff_sample_size <- .ess_safe(map_robust, sum(histdat$n))
         
         
         #-----------------------------------------------------------------------

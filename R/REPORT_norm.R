@@ -56,7 +56,9 @@
 #'                       sd    = c(2.0, 2.2, 2.1),
 #'                       n     = c(30, 30, 30))
 #' res <- SCI_norm(histdat, newdat, contr = "mean_diff", seed = 1)
-#' REPORT_norm(res)   # writes into tempdir()
+#' out <- tempfile(fileext = ".qmd")   # a unique file, removed below
+#' REPORT_norm(res, file = out)
+#' file.remove(out)
 #' }
 #' @export
 REPORT_norm <- function(x,

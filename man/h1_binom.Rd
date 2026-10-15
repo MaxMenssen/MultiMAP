@@ -42,14 +42,13 @@ A data frame with one row per study x group and columns \code{study}
   proportion) and \code{prob} (the group's true success probability).
 }
 \description{
-Simulates count data from a beta-binomial one-way random-effects model, the
-binomial analogue of \code{\link{h1_norm}}. Each of the \code{H} studies
+Simulates count data from a beta-binomial model. Each of the \code{H} studies
 (indexed \eqn{h = 1, \ldots, H}) is a cluster with its own true success
-probability \eqn{\pi_h \sim \mathrm{Beta}(a, b)}, where \eqn{a} and \eqn{b}
-follow \code{pi} and the intra-class correlation \code{rho} through
-\eqn{\rho = 1 / (1 + a + b)} (the \code{predint::rbbinom} parametrisation).
+probability \eqn{\pi_h \sim \mathrm{Beta}(a, b)}
 Within a study the control group (\eqn{m = 0}) has \eqn{Y_0 \sim
-\mathrm{Bin}(n_0, \pi_h)}; the treatment groups (\eqn{m = 1, \ldots, M}) share
+\mathrm{Bin}(n_0, \pi_h)}. Further details of the sampling process are given 
+in the documentation of \code{predint::rbbinom}.
+The treatment groups (\eqn{m = 1, \ldots, M}) share
 the same cluster proportion \eqn{\pi_h} and are offset by a fixed \code{shift}
 (on the probability or logit scale), so \code{shift_m} is the true
 treatment-vs-control effect on that scale. The number of treatment groups

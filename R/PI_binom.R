@@ -13,6 +13,10 @@
 #'   containing different data frames: each element supplies the external
 #'    data for a particular study-arm. Every arm without a list entry uses the 
 #'    non-borrowing (flat-prior) posterior.
+#' @details \code{histdat} columns are matched by name when all the expected names
+#'   are present, so they may be supplied in any order; otherwise the first columns
+#'   are read by position (with a message). Their values must be finite, with
+#'   \code{events} and \code{non_events} non-negative whole numbers.
 #' @param n0 planned sample size (e.g. number of patients) in the study arms of interest
 #'   for which the prediction intervals are derived. 
 #'   Either a single value (used for every arm) or a named vector with one value per arm.
@@ -28,21 +32,20 @@
 #'   to robustify the prior.
 #' @param tau_prior optional override for the \code{gMAP} between-study
 #'   heterogeneity prior (\code{tau.prior} in \code{RBesT::gMAP}), on the logit
-#'   scale. \code{NULL} (the default) uses the built-in heuristic (a
-#'   \code{HalfNormal} scale of 1 for a mean proportion in [0.2, 0.8], otherwise
-#'   \code{round(1 / sqrt(p_bar (1 - p_bar)), 1) / 2}); a larger scalar scale
-#'   widens the MAP prior and its prediction interval when few historical studies
-#'   leave tau weakly identified.
+#'   scale. \code{NULL} (the default) uses a \code{HalfNormal} scale of 1; a
+#'   larger scalar scale widens the MAP prior and its prediction interval when
+#'   few historical studies leave tau weakly identified.
 #' @param tau_dist distribution family of the \code{gMAP} between-study
 #'   heterogeneity prior (\code{tau.dist} in \code{RBesT::gMAP}); one of
 #'   \code{"HalfNormal"} (the default), \code{"TruncNormal"}, \code{"Uniform"},
 #'   \code{"Gamma"}, \code{"InvGamma"}, \code{"LogNormal"}, \code{"TruncCauchy"},
 #'   \code{"Exp"} or \code{"Fixed"}. The built-in default \code{tau_prior}
-#'   heuristic is calibrated for the half-normal, so when \code{tau_dist} is set
+#'   is calibrated for the half-normal, so when \code{tau_dist} is set
 #'   to any other family a matching \code{tau_prior} must also be supplied.
 #' @param beta_prior optional override for the \code{gMAP} intercept prior
 #'   (\code{beta.prior} in \code{RBesT::gMAP}), on the logit scale. \code{NULL}
-#'   (the default) uses a scale of 2.
+#'   (the default) uses a \code{Normal(logit(pooled rate), 2)} centred on the
+#'   pooled historical rate.
 #' @param alpha 1 - coverage level of the prediction interval.
 #' @param n_mcmc total number of Monte-Carlo samples to draw.
 #' @param seed optional integer; if supplied, \code{set.seed(seed)} is called so
@@ -85,6 +88,13 @@
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
+#'   \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+#'   carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+#'   \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+#'   \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+#'   \code{eff_n_map} and \code{eff_n} become named vectors. Access these through
+#'   \code{\link{get_output}}, \code{summary} or \code{print} rather than by
+#'   indexing the slots directly.
 #'   Use \code{\link{summary.MultiMAP}}, \code{\link{get_output}} and
 #'   \code{\link{REPORT_binom}} on it.
 #'
@@ -211,9 +221,14 @@ PI_binom <- function(histdat,
                    anyDuplicated(names(histdat)) ||
                    !all(vapply(histdat, is.data.frame, logical(1))))
                         stop("For multi-arm borrowing, 'histdat' must be a named list of data frames.")
+                histdat <- lapply(histdat, .canon_cols,
+                                  expected = c("events", "non_events"), what = "'histdat'")
                 return(.pi_binom_multiarm(histdat, n0, prior_est, robust,
                                           tau_prior, tau_dist, beta_prior, limits, alpha, seed))
         }
+
+        # Read columns by name when present (any order), else by position (H4).
+        histdat <- .canon_cols(histdat, c("events", "non_events"), "'histdat'")
 
         # Effective gMAP hyperpriors actually used (filled in the MAP block; NA
         # for the EB path). Stored in the output.
@@ -229,27 +244,21 @@ PI_binom <- function(histdat,
                 histdat_map <- cbind(data.frame(study=factor(1:nrow(histdat))),
                                      histdat)
 
-                # Default tau.prior (HalfNormal scale on the logit scale) depends
-                # on the mean proportion p_bar.
-                p_bar <- mean(histdat_map[,2] / (histdat_map[,2] + histdat_map[,3]))
-
-                if(0.2 <= p_bar & p_bar <= 0.8){
-                        tau_default <- 1
-                }
-                else{
-                        if(all(histdat_map[,2]==0)){
-                                y_vec <- histdat_map[,2]
-                                y_vec[1] <- 1
-                                n_vec <- histdat_map[,2] + histdat_map[,3]
-                                n_vec[1] <- n_vec[1] -1
-                                p_bar <- mean(y_vec / (n_vec))
-                        }
-                        tau_default <- round(1 / sqrt(p_bar * (1 - p_bar)), 1) / 2
-                }
+                # Default tau.prior: a fixed HalfNormal scale of 1 on the logit
+                # scale (RBesT's weakly-informative default). The former
+                # rate-dependent scale grew without bound as p_bar -> 0 and gave
+                # an absurdly diffuse MAP prior for sparse/all-zero historical
+                # data (issue H1); supply 'tau_prior' to override.
+                tau_default <- 1
 
                 # tau_prior / beta_prior override the defaults when supplied.
-                tau_p  <- if(is.null(tau_prior))  tau_default else tau_prior
-                beta_p <- if(is.null(beta_prior)) 2           else beta_prior
+                # Default intercept prior: Normal(logit(pooled rate), 2) on the
+                # logit scale, i.e. data-centred like the normal/Poisson families
+                # (issue M7). A continuity correction keeps the location finite
+                # for all-zero or all-success historical data.
+                p_pool <- (sum(histdat[,1]) + 0.5) / (sum(histdat[,1]) + sum(histdat[,2]) + 1)
+                tau_p  <- if(is.null(tau_prior))  tau_default                 else tau_prior
+                beta_p <- if(is.null(beta_prior)) cbind(stats::qlogis(p_pool), 2) else beta_prior
 
                 map_mcmc <- gMAP(cbind(histdat_map[,2], histdat_map[,3]) ~ 1 | study,
                                  data = histdat_map,
@@ -266,10 +275,16 @@ PI_binom <- function(histdat,
 
         if(prior_est=="EB"){
 
-                # No hist. observations (set a and b to predefined values)
+                # No events (set a and b to predefined values)
                 if(all(histdat[,1]==0)){
                         a_est <- 1
                         b_est <- sum(histdat[,2])-1
+                }
+
+                # No non-events, i.e. a 100% rate: mirror the all-events-zero case
+                else if(all(histdat[,2]==0)){
+                        a_est <- sum(histdat[,1])-1
+                        b_est <- 1
                 }
 
                 else{
@@ -288,8 +303,10 @@ PI_binom <- function(histdat,
                         a_est <- pi_HCD*a_b_HCD
                         b_est <- a_b_HCD-a_est
 
-                        # adjust a and b if data is not overdispersed
-                        if(a_est > sum(histdat[,1]) & b_est > sum(histdat[,1])){
+                        # adjust a and b if data is not overdispersed, i.e. the
+                        # fitted beta prior carries more information (a + b) than
+                        # the pooled historical data (events + non-events)
+                        if((a_est + b_est) > sum(histdat[,1]) + sum(histdat[,2])){
                                 a_est <- sum(histdat[,1])
                                 b_est <- sum(histdat[,2])
                         }
@@ -313,6 +330,7 @@ PI_binom <- function(histdat,
         # proportion scale.
 
         pred_dist <- RBesT::preddist(map, n = n0)
+        .warn_flat_binom_pred(pred_dist, n0, alpha)
 
         if(limits == "two.sided"){
                 pred_int <- c(median = unname(RBesT::qmix(pred_dist, 0.5))       / n0,
@@ -335,32 +353,12 @@ PI_binom <- function(histdat,
         #-----------------------------------------------------------------------
         # Effective sample size of the (non-robustified) prior
 
-        eff_n_map <- try(round(ess(map, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_n_map, "try-error")){
-
-                eff_n_map <- round(ess(map, method = "moment"))
-
-                warning("At least one parameter of the beta mixtures is less than 1.\n Estimation of ESS via elir-method does not work. ESS was estimated based on method of moments")
-        }
-
-        eff_n_map <- min(max(0, eff_n_map),
-                         sum(c(histdat[,1] + histdat[,2])))
+        eff_n_map <- .ess_safe(map, sum(c(histdat[,1] + histdat[,2])))
 
         #-----------------------------------------------------------------------
         # Effective sample size of the robustified prior
 
-        eff_sample_size <- try(round(ess(map_robust, method = "elir")), silent = TRUE)
-
-        if(inherits(eff_sample_size, "try-error")){
-
-                eff_sample_size <- round(ess(map_robust, method = "moment"))
-
-                warning("At least one parameter of the beta mixtures is less than 1.\n Estimation of ESS via elir-method does not work. ESS was estimated based on method of moments")
-        }
-
-        eff_sample_size <- min(max(0, eff_sample_size),
-                               sum(c(histdat[,1] + histdat[,2])))
+        eff_sample_size <- .ess_safe(map_robust, sum(c(histdat[,1] + histdat[,2])))
 
         #-----------------------------------------------------------------------
         weights <- data.frame(w_prior = c(1 - robust, robust),
@@ -410,6 +408,7 @@ PI_binom <- function(histdat,
         map <- pr$map
         map_robust <- robustify(map, weight = robust, mean = 1 / 2)
         pred_dist  <- RBesT::preddist(map, n = n0)
+        .warn_flat_binom_pred(pred_dist, n0, alpha)
         pred_int   <- .pred_int_from(pred_dist, limits, alpha, scale = n0)
         cap        <- sum(hd[, 1] + hd[, 2])
 

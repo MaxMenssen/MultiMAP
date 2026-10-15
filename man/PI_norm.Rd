@@ -109,12 +109,25 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names), and \code{prior},
+  \code{prior_rob}, \code{pred_dist}, \code{pred_int}, \code{weights},
+  \code{tau_prior} and \code{beta_prior} become per-arm named lists while
+  \code{eff_n_map} and \code{eff_n} become named vectors. Access these through
+  \code{\link{get_output}}, \code{summary} or \code{print} rather than by
+  indexing the slots directly.
   Use \code{\link{plot.MultiMAP}}, \code{\link{summary.MultiMAP}},
   \code{\link{get_output}} and \code{\link{REPORT_norm}} on it.
 }
 \description{
 Builds robustified meta-analytic-predictive (MAP) priors (via \code{RBesT::gMAP}) 
 and derives the prediction intervals for the means of the study arms of interest.
+}
+\details{
+\code{histdat} columns are matched by name when all the expected names
+  are present, so they may be supplied in any order; otherwise the first columns
+  are read by position (with a message). Their values must be finite, with
+  \code{sd} and \code{n} positive.
 }
 \examples{
 \donttest{

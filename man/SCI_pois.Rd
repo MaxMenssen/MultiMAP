@@ -20,7 +20,8 @@ SCI_pois(
   alpha = 0.05,
   n_mcmc = 50000,
   seed = NULL,
-  all_zero = c(1e-04, 1)
+  all_zero = c(0.5, 0.5),
+  nonborrow_prior = c(0.5, 0.001)
 )
 }
 \arguments{
@@ -33,7 +34,7 @@ borrowing for one study arm (e.g. control group): submit a data.frame with colum
    data for a particular study-arm.}
 
 \item{newdat}{a data.frame containing the current trial; columns \code{group}, \code{events},
-\code{offset}. In case for borrowing for the control group: Row 1 is the concurrent 
+\code{offset}. In case for borrowing for the control group: Row 1 is the concurrent
 control, the remaining rows are treatment groups.}
 
 \item{prior_est}{\code{"MAP"} (a meta-analytic-predictive prior via \code{RBesT::gMAP})
@@ -53,7 +54,7 @@ rate: either \code{"two.sided"}, \code{"lower"} or \code{"upper"}. Defaults
 to \code{limits} so that, unless set, the prediction interval follows the
 contrasts' one- or two-sidedness.}
 
-\item{base}{index of the control group for the contrast matrix.}
+\item{base}{integer index of the control group for the contrast matrix.}
 
 \item{robust}{weight of the weakly-informative (robust) prior component.}
 
@@ -91,6 +92,14 @@ untouched.}
 \item{all_zero}{length-2 numeric giving the fallback gamma shape and rate
 \code{c(a, b)} used for the empirical-Bayes prior when all historical counts
 are zero (so the moment estimator is undefined).}
+
+\item{nonborrow_prior}{length-2 numeric \code{c(shape, rate)} giving the
+weakly-informative gamma prior applied to the non-borrowing arms (the
+treatment arms in single-arm borrowing, and any arm without its own
+historical data set in multi-arm borrowing). The default
+\code{c(0.5, 0.001)} is a Jeffreys-like prior whose shape 0.5 keeps a
+zero-count arm's posterior off the rate 0; the posterior of a non-borrowing
+arm is \code{Gamma(shape + events, rate + offset)}.}
 }
 \value{
 A MultiMAP object: a named list with S3 class
@@ -140,6 +149,15 @@ A MultiMAP object: a named list with S3 class
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
+  \strong{Multi-arm borrowing} (a named-list \code{histdat}): the object also
+  carries a \code{borrow_arms} slot (the borrowed arm names); \code{prior},
+  \code{prior_rob}, \code{posterior}, \code{pred_dist}, \code{pred_int},
+  \code{weights}, \code{shrinkage}, \code{tau_prior} and \code{beta_prior}
+  become per-arm named lists; \code{eff_n_map}, \code{eff_n} and
+  \code{eff_n_post} become named vectors; \code{prior_par} and \code{estimates}
+  are \code{NA}; and \code{newdat} omits the posterior-parameter columns.
+  Access these through \code{\link{get_output}}, \code{summary} or
+  \code{print} rather than by indexing the slots directly.
 }
 \description{
 Bayesian dynamic borrowing from historical control data for a Poisson (count)
@@ -150,6 +168,12 @@ non-informative component; (3) update to posteriors with the current
 control data; (4) draw samples from the joint posterior; 
 (5) derive SIMULTANEOUS credible sets for the comparisons of interest 
 based on the joint posterior
+}
+\details{
+\code{histdat} and \code{newdat} columns are matched by name when all the
+  expected names are present, so they may be supplied in any order; otherwise the
+  first columns are read by position (with a message). Their values must be
+  finite, with \code{events} non-negative and \code{offset} positive.
 }
 \examples{
 \donttest{
