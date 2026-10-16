@@ -24,7 +24,8 @@ data frame, or every named arm when \code{histdat} is a list (multi-arm
 borrowing). Each block reports, at the \eqn{100(1-\alpha)\%} level, the
 prediction interval (\code{object$pred_int}) for that arm's mean (normal),
 proportion (binomial) or rate (Poisson), and its effective sample sizes (the
-MAP prior, the robustified prior and -- for \code{\link{SCI_norm}} /
+prior -- labelled by the method used, \code{MAP} or \code{EB} -- the
+robustified prior and -- for \code{\link{SCI_norm}} /
 \code{\link{SCI_binom}} / \code{\link{SCI_pois}} output, class \code{"SCI"} --
 the posterior). For \code{"SCI"} output the observed value of the arm and
 whether it is covered by the prediction interval are added, and the

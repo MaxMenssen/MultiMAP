@@ -11,11 +11,11 @@
 #'   \item \code{SCI} object (class \code{"SCI"}):
 #'     \code{which = 1} prediction-interval plot (default);
 #'     \code{which = 2} simultaneous credible-interval plot;
-#'     \code{which = 3} the prior, likelihood and posterior of the concurrent
-#'     control overlaid (visualises shrinkage). For a multi-arm object this is one
-#'     sub-panel per arm: borrowing arms show their robustified prior, and
-#'     non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a flat prior
-#'     with the posterior coinciding with the likelihood (no shrinkage).
+#'     \code{which = 3} the prior, likelihood and posterior overlaid (visualises
+#'     shrinkage), one sub-panel per arm: borrowing arms show their robustified
+#'     prior, and non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a
+#'     flat prior with the posterior coinciding with the likelihood (no
+#'     shrinkage).
 #' }
 #' For a normal endpoint the prediction-interval plot is a continuous density
 #' with the interval shaded; for a binomial endpoint it is the discrete
@@ -714,7 +714,22 @@ plot.MultiMAP <- function(x, which = 1, arm = NULL, ...){
         which <- as.integer(which)[1]
         if(which == 1L) return(plot_PI(x, ...))     # prediction-interval plot
         if(which == 2L) return(plot_SCI(x))         # simultaneous CI plot
-        if(which == 3L) return(plot_prior_lik_post(x))   # prior, likelihood and posterior
+        if(which == 3L){
+                # Single-arm object: facet over all arms so the non-borrowing
+                # (treatment) arms are shown too, matching the multi-arm which = 3
+                # plot. Row 1 is the concurrent (borrowing) control; reshape to the
+                # per-arm structure plot_plp_facets() expects. A multi-arm object
+                # narrowed to one named arm (x$borrow_arms still set) keeps the
+                # single-panel plot.
+                if(is.null(x$borrow_arms) && nrow(x$newdat) > 1L){
+                        ctrl          <- as.character(x$newdat$group[1])
+                        x$borrow_arms <- ctrl
+                        x$prior_rob   <- stats::setNames(list(x$prior_rob), ctrl)
+                        x$posterior   <- stats::setNames(list(x$posterior), ctrl)
+                        return(plot_plp_facets(x))
+                }
+                return(plot_prior_lik_post(x))   # single (selected or only) arm
+        }
 
         stop("'which' must be 1 (prediction interval), 2 (simultaneous CI) or 3 (prior, likelihood and posterior).")
 }

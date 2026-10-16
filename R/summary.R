@@ -7,7 +7,8 @@
 #' borrowing). Each block reports, at the \eqn{100(1-\alpha)\%} level, the
 #' prediction interval (\code{object$pred_int}) for that arm's mean (normal),
 #' proportion (binomial) or rate (Poisson), and its effective sample sizes (the
-#' MAP prior, the robustified prior and -- for \code{\link{SCI_norm}} /
+#' prior -- labelled by the method used, \code{MAP} or \code{EB} -- the
+#' robustified prior and -- for \code{\link{SCI_norm}} /
 #' \code{\link{SCI_binom}} / \code{\link{SCI_pois}} output, class \code{"SCI"} --
 #' the posterior). For \code{"SCI"} output the observed value of the arm and
 #' whether it is covered by the prediction interval are added, and the
@@ -57,6 +58,10 @@ summary.MultiMAP <- function(object, ...){
         # ESS); PI_*() objects do not.
         is_sci <- inherits(object, "SCI")
 
+        # Prior method actually used, for the ESS labels ("MAP" vs "EB"); older
+        # objects without the slot fall back to the neutral "prior".
+        meth <- if(is.null(object$prior_est)) "prior" else toupper(as.character(object$prior_est))
+
         # One borrowing block per arm, identical layout for single- and multi-arm
         # output: the prediction interval, the observed value + coverage (SCI
         # only) and the effective sample sizes.
@@ -71,7 +76,7 @@ summary.MultiMAP <- function(object, ...){
                         cat("  observed ", unit, ": ", signif(obs, 4),
                             if(covered) " (covered)" else " (NOT covered)", "\n", sep = "")
                 }
-                cat("  ESS  MAP: ", e_map, " | robust. MAP: ", e_rob,
+                cat("  ESS  ", meth, ": ", e_map, " | robust. ", meth, ": ", e_rob,
                     if(is_sci) paste0(" | posterior: ", e_post) else "", "\n", sep = "")
         }
 

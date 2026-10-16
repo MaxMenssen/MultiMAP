@@ -232,6 +232,78 @@ globalVariables(c(
         invisible(df)
 }
 
+# One-paragraph "Methods" description for a MultiMAP object, embedded by the
+# REPORT_*() generators. It reflects the actual input: the prior method (MAP vs
+# EB), the hyperpriors (MAP) or estimated prior and overdispersion (EB), the
+# robustification weight, the number of historical studies and the endpoint.
+# Returns a single markdown string (one sentence/paragraph).
+.report_methods <- function(x){
+        distr  <- as.character(x$distr)
+        is_sci <- inherits(x, "SCI")
+        multi  <- !is.null(x$borrow_arms)
+        conf   <- if(is.null(x$alpha)) NA_real_ else 100 * (1 - x$alpha)
+        is_map <- identical(as.character(x$prior_est), "MAP")
+
+        v <- switch(distr,
+                betabinomial = list(fam = "beta",   loc = "pooled historical log-odds",
+                                    eb = "the method of moments (Lui, 2000)",
+                                    rob = "a weakly-informative Beta(1, 1)"),
+                poisson      = list(fam = "gamma",  loc = "pooled historical log-rate",
+                                    eb = "the method of moments (Tarone, 1982)",
+                                    rob = "a weakly-informative gamma"),
+                               list(fam = "normal", loc = "pooled historical mean",
+                                    eb = NA_character_,
+                                    rob = "a weakly-informative normal"))
+
+        num <- function(z) signif(as.numeric(z), 3)
+        wt  <- function(w) if(is.data.frame(w)) num(w$w_prior[2]) else NA
+
+        # per-unit clause: the single-arm control, or one borrowed arm
+        desc <- function(prior, tau_prior, beta_prior, eb_est){
+                if(is_map){
+                        tp  <- as.numeric(tau_prior$prior); tsc <- num(tp[length(tp)])
+                        bp  <- as.numeric(beta_prior)
+                        sprintf(paste0("a %s(0, %s) prior on the between-study standard deviation and a ",
+                                       "Normal(%s, %s) prior on the intercept (centred on the %s), ",
+                                       "approximated by a %d-component %s mixture"),
+                                tau_prior$dist, tsc, num(bp[1]), num(bp[2]), v$loc, ncol(prior), v$fam)
+                } else {
+                        Fam <- paste0(toupper(substr(v$fam, 1, 1)), substring(v$fam, 2))
+                        rho <- if(is.numeric(eb_est) && "rho" %in% names(eb_est) && is.finite(eb_est[["rho"]]))
+                                       sprintf(", overdispersion rho = %s", num(eb_est[["rho"]])) else ""
+                        sprintf("a %s(%s, %s) prior%s, estimated by %s",
+                                Fam, num(prior["a", 1]), num(prior["b", 1]), rho, v$eb)
+                }
+        }
+
+        method_word <- if(is_map) "meta-analytic-predictive (MAP)" else "empirical-Bayes (EB)"
+        fit_word    <- if(is_map) ", fitted with the RBesT package (Weber et al., 2021)" else ""
+        ci <- if(is_sci && is.finite(conf))
+                      sprintf(paste0(" Treatment groups are compared with the concurrent control using ",
+                                     "simultaneous %.0f%% credible intervals (Besag et al., 1995)."), conf)
+              else ""
+
+        if(!multi){
+                sprintf(paste0("Historical control information from %d studies was incorporated into the ",
+                               "concurrent control through a robust %s prior (Schmidli et al., 2014)%s: %s, ",
+                               "robustified by mixing in %s component with weight %s.%s"),
+                        nrow(x$histdat), method_word, fit_word,
+                        desc(x$prior, x$tau_prior, x$beta_prior, x$eb_estimates),
+                        v$rob, wt(x$weights), ci)
+        } else {
+                arms <- x$borrow_arms
+                per  <- vapply(arms, function(a)
+                        sprintf("%s (%d studies): %s", a, nrow(x$histdat[[a]]),
+                                desc(x$prior[[a]], x$tau_prior[[a]], x$beta_prior[[a]], x$eb_estimates[[a]])),
+                        character(1))
+                sprintf(paste0("Historical information was incorporated for %d borrowed arm%s through robust %s ",
+                               "priors (Schmidli et al., 2014)%s, each robustified by mixing in %s component with ",
+                               "weight %s. The per-arm priors are -- %s.%s"),
+                        length(arms), if(length(arms) == 1) "" else "s", method_word, fit_word, v$rob,
+                        wt(x$weights[[arms[1]]]), paste(per, collapse = "; "), ci)
+        }
+}
+
 # Validate a multi-arm 'histdat' (named list) against the current-trial groups.
 .check_multi_histdat <- function(histdat, groups){
         if(is.null(names(histdat)) || any(names(histdat) == ""))

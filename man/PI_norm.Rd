@@ -106,6 +106,7 @@ A MultiMAP object: a named list with S3 class
       prior distribution name (\code{dist}) and its parameters (\code{prior})
       actually used.}
     \item{\code{beta_prior}}{the gMAP intercept prior actually used.}
+    \item{\code{prior_est}}{the prior method used (\code{"MAP"}).}
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }

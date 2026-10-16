@@ -9,6 +9,11 @@
 #' reproducibly. The italicised prose is placeholder guidance for the user to
 #' replace.
 #'
+#' Every report includes an auto-generated \strong{Methods} section describing the
+#' prior method actually used (MAP or empirical Bayes), its hyperpriors or
+#' estimated prior (with the overdispersion for the EB prior) and the
+#' robustification, derived from the fitted object.
+#'
 #' Both object types share a block of three sections: the prior (\code{$prior})
 #' as a table and density plot; the prediction interval (\code{$pred_int}) for
 #' the concurrent control proportion as a table; and the robustified prior
@@ -116,6 +121,15 @@ REPORT_binom <- function(x,
         # Save the fitted object beside the report; the template loads it by name.
         data_file <- paste0(tools::file_path_sans_ext(file), "_object.rds")
         saveRDS(x, data_file)
+
+        # Methods paragraph, built from the fitted object (prior method, hyper-
+        # priors / estimated prior, robustification), injected via {{METHODS}}.
+        methods_txt   <- .report_methods(x)
+        methods_block <- r"---(
+# Methods
+
+{{METHODS}}
+)---"
 
         #-----------------------------------------------------------------------
         # YAML front matter (format-specific)
@@ -399,6 +413,9 @@ Besag, J., Green, P., Higdon, D., & Mengersen, K. (1995). Bayesian computation a
 stochastic systems. *Statistical Science, 10*(1), 3--66.
 http://www.jstor.org/stable/2246224
 
+Lui, K.-J. (2000). A revisit of some simple point estimators in binomial
+distributions. *Biometrical Journal, 42*(6), 733--741.
+
 Schmidli, H., Gsteiger, S., Roychoudhury, S., O'Hagan, A., Spiegelhalter, D., &
 Neuenschwander, B. (2014). Robust meta-analytic-predictive priors in clinical trials
 with historical control information. *Biometrics, 70*(4), 1023--1032.
@@ -657,18 +674,19 @@ level; a contrast covering the null does not.*
                         collapse = "\n")
                 per_arm  <- paste0("\n# Borrowed arms\n", per_arm)
                 if (is_sci) {
-                        body <- paste0(preamble_multi, overview_multi_sci, current_trial_multi,
+                        body <- paste0(preamble_multi, overview_multi_sci, methods_block, current_trial_multi,
                                        per_arm, nonborrow_multi, sci_tail_multi, refs_sci)
                 } else {
-                        body <- paste0(preamble_multi, overview_multi_pi, per_arm, refs_pi)
+                        body <- paste0(preamble_multi, overview_multi_pi, methods_block, per_arm, refs_pi)
                 }
         } else if (is_sci) {
-                body <- paste0(preamble, overview_sci, historical, current_trial,
+                body <- paste0(preamble, overview_sci, methods_block, historical, current_trial,
                                shared_map, posterior_sci, refs_sci)
         } else {
-                body <- paste0(preamble, overview_pi, historical, shared_map, refs_pi)
+                body <- paste0(preamble, overview_pi, methods_block, historical, shared_map, refs_pi)
         }
         body <- gsub("{{DATA_FILE}}", basename(data_file), body, fixed = TRUE)
+        body <- gsub("{{METHODS}}",   methods_txt,         body, fixed = TRUE)
 
         #-----------------------------------------------------------------------
         # Write the report

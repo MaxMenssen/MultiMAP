@@ -117,6 +117,7 @@
 #'       actually used (\code{NA} for the EB prior).}
 #'     \item{\code{beta_prior}}{the gMAP intercept prior actually used
 #'       (\code{NA} for the EB prior).}
+#'     \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
@@ -585,6 +586,7 @@ SCI_pois <- function(histdat,
                          "simpost"    = simpost,
                          "tau_prior"  = .tau_prior_out(tau_dist, tau_p),
                          "beta_prior" = beta_p,
+                         "prior_est"  = prior_est,
                          "alpha"      = alpha,
                          "seed"       = if(is.null(seed)) NA_integer_ else seed)
 
@@ -784,6 +786,7 @@ SCI_pois <- function(histdat,
                          "simpost"     = simpost,
                          "tau_prior"   = pick("tau_prior"),
                          "beta_prior"  = pick("beta_prior"),
+                         "prior_est"   = prior_est,
                          "alpha"       = alpha,
                          "seed"        = if(is.null(seed)) NA_integer_ else seed)
 

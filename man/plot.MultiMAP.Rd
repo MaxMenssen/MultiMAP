@@ -53,11 +53,11 @@ depending on how the object was produced:
   \item \code{SCI} object (class \code{"SCI"}):
     \code{which = 1} prediction-interval plot (default);
     \code{which = 2} simultaneous credible-interval plot;
-    \code{which = 3} the prior, likelihood and posterior of the concurrent
-    control overlaid (visualises shrinkage). For a multi-arm object this is one
-    sub-panel per arm: borrowing arms show their robustified prior, and
-    non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a flat prior
-    with the posterior coinciding with the likelihood (no shrinkage).
+    \code{which = 3} the prior, likelihood and posterior overlaid (visualises
+    shrinkage), one sub-panel per arm: borrowing arms show their robustified
+    prior, and non-borrowing arms (strip marked \dQuote{(no borrowing)}) show a
+    flat prior with the posterior coinciding with the likelihood (no
+    shrinkage).
 }
 For a normal endpoint the prediction-interval plot is a continuous density
 with the interval shaded; for a binomial endpoint it is the discrete

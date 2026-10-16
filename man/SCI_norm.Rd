@@ -140,6 +140,7 @@ A MultiMAP object: a named list with S3 class
       actually used (the defaults or the supplied overrides).}
     \item{\code{beta_prior}}{the gMAP intercept prior actually used (the
       default or the supplied override).}
+    \item{\code{prior_est}}{the prior method used (\code{"MAP"}).}
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }

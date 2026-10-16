@@ -87,6 +87,9 @@
 #'       posterior.}
 #'     \item{\code{estimates}}{the internal sampling table (mixture weights, beta
 #'       parameters and per-component draw counts).}
+#'     \item{\code{eb_estimates}}{for \code{prior_est = "EB"}, the empirical-Bayes
+#'       point estimates \code{c(pi, rho)} (proportion and overdispersion);
+#'       \code{NA} for the MAP prior.}
 #'     \item{\code{contr_mat}}{the contrast matrix used.}
 #'     \item{\code{prior}}{the (non-robustified) prior (RBesT beta mixture).}
 #'     \item{\code{prior_rob}}{the robustified prior (RBesT beta mixture).}
@@ -108,6 +111,7 @@
 #'       actually used (\code{NA} for the EB prior).}
 #'     \item{\code{beta_prior}}{the gMAP intercept prior actually used
 #'       (\code{NA} for the EB prior).}
+#'     \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
@@ -295,6 +299,10 @@ SCI_binom <- function(histdat,
         # for the EB path, which uses no gMAP). Stored in the output.
         tau_p  <- NA
         beta_p <- NA
+        # Empirical-Bayes point estimates (pi, rho); filled in the EB block, NA
+        # otherwise. Kept separate from 'estimates' (reused below for the mixture
+        # table) so the summary / report can show the overdispersion. (issue: report Methods)
+        eb_est <- NA
 
         #=======================================================================
         # Prior specification -- unchanged: MAP (gMAP) or EB (empirical Bayes)
@@ -380,6 +388,7 @@ SCI_binom <- function(histdat,
                         }
 
                         estimates_out <- c("pi"=pi_HCD, "rho"=rho_HCD)
+                        eb_est         <- c(pi = pi_HCD, rho = rho_HCD)
                 }
 
                 map <- mixbeta(c(1, a_est, b_est))
@@ -631,6 +640,7 @@ SCI_binom <- function(histdat,
                          "eff_n"      = eff_sample_size,
                          "eff_n_post" = eff_n_post,
                          "estimates"  = estimates_out,
+                         "eb_estimates" = eb_est,
                          "contr_mat"  = cmatr,
                          "prior"      = map,
                          "prior_rob"  = map_robust,
@@ -641,6 +651,7 @@ SCI_binom <- function(histdat,
                          "simpost"    = simpost,
                          "tau_prior"  = .tau_prior_out(tau_dist, tau_p),
                          "beta_prior" = beta_p,
+                         "prior_est"  = prior_est,
                          "alpha"      = alpha,
                          "seed"       = if(is.null(seed)) NA_integer_ else seed)
 
@@ -766,6 +777,7 @@ SCI_binom <- function(histdat,
                                      w_post  = c(1 - w_rob_post, w_rob_post)),
              tau_prior  = .tau_prior_out(tau_dist, pr$tau_p),
              beta_prior = pr$beta_p,
+             eb_estimates = pr$estimates,
              samples    = samples)
 }
 
@@ -850,6 +862,7 @@ SCI_binom <- function(histdat,
                          "eff_n"       = pickv("eff_n"),
                          "eff_n_post"  = pickv("eff_n_post"),
                          "estimates"   = NA,
+                         "eb_estimates" = pick("eb_estimates"),
                          "contr_mat"   = sci$cmatr,
                          "prior"       = pick("prior"),
                          "prior_rob"   = pick("prior_rob"),
@@ -860,6 +873,7 @@ SCI_binom <- function(histdat,
                          "simpost"     = simpost,
                          "tau_prior"   = pick("tau_prior"),
                          "beta_prior"  = pick("beta_prior"),
+                         "prior_est"   = prior_est,
                          "alpha"       = alpha,
                          "seed"        = if(is.null(seed)) NA_integer_ else seed)
 

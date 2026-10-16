@@ -69,6 +69,9 @@
 #'     \item{\code{eff_n}}{effective sample size of the robustified prior.}
 #'     \item{\code{eff_n_post}}{\code{NA} (no posterior is formed).}
 #'     \item{\code{estimates}}{\code{NA} (only \code{\link{SCI_binom}} fills this).}
+#'     \item{\code{eb_estimates}}{for \code{prior_est = "EB"}, the empirical-Bayes
+#'       point estimates \code{c(pi, rho)} (proportion and overdispersion);
+#'       \code{NA} for the MAP prior.}
 #'     \item{\code{contr_mat}}{\code{NA} (only \code{\link{SCI_binom}} fills this).}
 #'     \item{\code{prior}}{the (non-robustified) prior (RBesT beta mixture).}
 #'     \item{\code{prior_rob}}{the robustified prior (RBesT beta mixture).}
@@ -85,6 +88,7 @@
 #'       actually used (\code{NA} for the EB prior).}
 #'     \item{\code{beta_prior}}{the gMAP intercept prior actually used
 #'       (\code{NA} for the EB prior).}
+#'     \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
@@ -234,6 +238,8 @@ PI_binom <- function(histdat,
         # for the EB path). Stored in the output.
         tau_p  <- NA
         beta_p <- NA
+        # Empirical-Bayes point estimates (pi, rho); filled in the EB block.
+        eb_est <- NA
 
         #=======================================================================
         # Prior specification -- same as SCI_binom(): MAP (gMAP) or EB (emp. Bayes)
@@ -293,6 +299,7 @@ PI_binom <- function(histdat,
                         names(estimates) <- c("pi", "rho")
                         pi_HCD <- unname(estimates[1])
                         rho_HCD <- max(0.00001, unname(estimates[2]))
+                        eb_est  <- c(pi = pi_HCD, rho = rho_HCD)
 
                         if(rho_HCD==0.00001){
                                 warning("Data is underdispersed. rho_HCD was set to 0.00001")
@@ -378,6 +385,7 @@ PI_binom <- function(histdat,
                          "eff_n"      = eff_sample_size,
                          "eff_n_post" = NA,
                          "estimates"  = NA,
+                         "eb_estimates" = eb_est,
                          "contr_mat"  = NA,
                          "prior"      = map,
                          "prior_rob"  = map_robust,
@@ -388,6 +396,7 @@ PI_binom <- function(histdat,
                          "simpost"    = NA,
                          "tau_prior"  = .tau_prior_out(tau_dist, tau_p),
                          "beta_prior" = beta_p,
+                         "prior_est"  = prior_est,
                          "alpha"      = alpha,
                          "seed"       = if(is.null(seed)) NA_integer_ else seed)
 
@@ -420,7 +429,8 @@ PI_binom <- function(histdat,
              eff_n      = .ess_safe(map_robust, cap),
              weights    = data.frame(w_prior = c(1 - robust, robust), w_post = c(NA, NA)),
              tau_prior  = .tau_prior_out(tau_dist, pr$tau_p),
-             beta_prior = pr$beta_p)
+             beta_prior = pr$beta_p,
+             eb_estimates = pr$estimates)
 }
 
 #-------------------------------------------------------------------------------
@@ -451,6 +461,7 @@ PI_binom <- function(histdat,
                          "eff_n"       = pickv("eff_n"),
                          "eff_n_post"  = na_v,
                          "estimates"   = NA, "contr_mat" = NA,
+                         "eb_estimates" = pick("eb_estimates"),
                          "prior"       = pick("prior"),
                          "prior_rob"   = pick("prior_rob"),
                          "posterior"   = NA,
@@ -459,6 +470,7 @@ PI_binom <- function(histdat,
                          "shrinkage"   = NA, "simpost" = NA,
                          "tau_prior"   = pick("tau_prior"),
                          "beta_prior"  = pick("beta_prior"),
+                         "prior_est"   = prior_est,
                          "alpha"       = alpha,
                          "seed"        = if(is.null(seed)) NA_integer_ else seed)
 

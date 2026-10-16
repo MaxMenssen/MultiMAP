@@ -114,6 +114,9 @@ A MultiMAP object: a named list with S3 class
       posterior.}
     \item{\code{estimates}}{the internal sampling table (mixture weights, beta
       parameters and per-component draw counts).}
+    \item{\code{eb_estimates}}{for \code{prior_est = "EB"}, the empirical-Bayes
+      point estimates \code{c(pi, rho)} (proportion and overdispersion);
+      \code{NA} for the MAP prior.}
     \item{\code{contr_mat}}{the contrast matrix used.}
     \item{\code{prior}}{the (non-robustified) prior (RBesT beta mixture).}
     \item{\code{prior_rob}}{the robustified prior (RBesT beta mixture).}
@@ -135,6 +138,7 @@ A MultiMAP object: a named list with S3 class
       actually used (\code{NA} for the EB prior).}
     \item{\code{beta_prior}}{the gMAP intercept prior actually used
       (\code{NA} for the EB prior).}
+    \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }

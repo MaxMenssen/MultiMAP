@@ -146,6 +146,7 @@ A MultiMAP object: a named list with S3 class
       actually used (\code{NA} for the EB prior).}
     \item{\code{beta_prior}}{the gMAP intercept prior actually used
       (\code{NA} for the EB prior).}
+    \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }

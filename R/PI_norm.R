@@ -81,6 +81,7 @@
 #'       prior distribution name (\code{dist}) and its parameters (\code{prior})
 #'       actually used.}
 #'     \item{\code{beta_prior}}{the gMAP intercept prior actually used.}
+#'     \item{\code{prior_est}}{the prior method used (\code{"MAP"}).}
 #'     \item{\code{alpha}}{the \code{alpha} used.}
 #'     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
 #'   }
@@ -353,6 +354,7 @@ PI_norm <- function(histdat,
                          "simpost"    = NA,
                          "tau_prior"  = .tau_prior_out(tau_dist, tau_p),
                          "beta_prior" = beta_p,
+                         "prior_est"  = prior_est,
                          "alpha"      = alpha,
                          "seed"       = if(is.null(seed)) NA_integer_ else seed)
 
@@ -449,6 +451,7 @@ PI_norm <- function(histdat,
                          "simpost"     = NA,
                          "tau_prior"   = pick("tau_prior"),
                          "beta_prior"  = pick("beta_prior"),
+                         "prior_est"   = "MAP",
                          "alpha"       = alpha,
                          "seed"        = if(is.null(seed)) NA_integer_ else seed)
 

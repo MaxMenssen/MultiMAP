@@ -49,6 +49,10 @@ with live code chunks, so the document re-renders reproducibly. The
 italicised prose is placeholder guidance for the user to replace.
 }
 \details{
+Every report includes an auto-generated \strong{Methods} section describing the
+MAP prior, its hyperpriors (the between-study heterogeneity and intercept
+priors) and the robustification, derived from the fitted object.
+
 Both object types share an identical block of three sections (same prose in
 both reports): the MAP prior (\code{$prior}) as a table and plot; the
 MAP-based prediction interval (\code{$pred_int}) as a table and plot -- for

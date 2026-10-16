@@ -51,6 +51,11 @@ reproducibly. The italicised prose is placeholder guidance for the user to
 replace.
 }
 \details{
+Every report includes an auto-generated \strong{Methods} section describing the
+prior method actually used (MAP or empirical Bayes), its hyperpriors or
+estimated prior (with the overdispersion for the EB prior) and the
+robustification, derived from the fitted object.
+
 Both object types share a block of three sections: the prior (\code{$prior})
 as a table and density plot; the prediction interval (\code{$pred_int}) for
 the concurrent control proportion as a table; and the robustified prior

@@ -89,6 +89,9 @@ A MultiMAP object: a named list with S3 class
     \item{\code{eff_n}}{effective sample size of the robustified prior.}
     \item{\code{eff_n_post}}{\code{NA} (no posterior is formed).}
     \item{\code{estimates}}{\code{NA} (only \code{\link{SCI_binom}} fills this).}
+    \item{\code{eb_estimates}}{for \code{prior_est = "EB"}, the empirical-Bayes
+      point estimates \code{c(pi, rho)} (proportion and overdispersion);
+      \code{NA} for the MAP prior.}
     \item{\code{contr_mat}}{\code{NA} (only \code{\link{SCI_binom}} fills this).}
     \item{\code{prior}}{the (non-robustified) prior (RBesT beta mixture).}
     \item{\code{prior_rob}}{the robustified prior (RBesT beta mixture).}
@@ -105,6 +108,7 @@ A MultiMAP object: a named list with S3 class
       actually used (\code{NA} for the EB prior).}
     \item{\code{beta_prior}}{the gMAP intercept prior actually used
       (\code{NA} for the EB prior).}
+    \item{\code{prior_est}}{the prior method used (\code{"MAP"} or \code{"EB"}).}
     \item{\code{alpha}}{the \code{alpha} used.}
     \item{\code{seed}}{the \code{seed} used (\code{NA} if none).}
   }
