@@ -1,10 +1,10 @@
 #-------------------------------------------------------------------------------
 # Startup message shown when the package is attached (library(MultiMAP)).
-# Flags the developmental status of this GitHub version.
+# Flags that MultiMAP has been renamed to dbbMultiArm and is no longer maintained.
 #-------------------------------------------------------------------------------
 .onAttach <- function(libname, pkgname){
         packageStartupMessage(
-                "This is the developmental version of MultiMAP. Especially the ",
-                "methodology for Poisson endpoints needs further adaptions and is ",
-                "not yet ready for practical usage.")
+                "MultiMAP has been renamed to 'dbbMultiArm' and is no longer ",
+                "maintained. Please install and use dbbMultiArm instead:\n",
+                "  remotes::install_github(\"MaxMenssen/dbbMultiArm\")")
 }
