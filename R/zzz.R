@@ -4,7 +4,7 @@
 #-------------------------------------------------------------------------------
 .onAttach <- function(libname, pkgname){
         packageStartupMessage(
-                "MultiMAP has been renamed to 'dbbMultiArm' and is no longer ",
-                "maintained. Please install and use dbbMultiArm instead:\n",
-                "  remotes::install_github(\"MaxMenssen/dbbMultiArm\")")
+                "Deprecated — renamed. MultiMAP has been renamed to dbbMultiArm ",
+                "and is no longer maintained under this name. Please install and ",
+                "use dbbMultiArm instead.")
 }
